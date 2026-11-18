@@ -23,8 +23,16 @@ Learned the hard way with `@kumoproductions/mcp-aftereffects` on AE 2026 (26.x),
 | `render.set_output` | breaks paths with non-ASCII characters (Masaüstü) | use `render.set_om_settings {"Output File Info": {"Base Path", "Subfolder Path", "File Name"}}` AFTER the template is set |
 | `comp.info` / `ae_comp_info` | by numeric item id when the comp name looks like a number ("121") | |
 | `keremkit.py pref set` | `key=value` in ONE argument | two arguments are refused |
+| `comp.sample` | `properties` | not `property` |
+| `item.move_to_folder` | `item` | not `items` |
+| `comp.set_props` | `preserveNestedFrameRate`, `motionBlur`, `shutterAngle`, `frameRate` | read back with `property.get` / `comp.info` (small comp) - unknown keys are ignored silently |
 
 ## Reading cheaply
+
+- **One AE call at a time.** Never send AE MCP calls in parallel: they trigger the "second script" dialog and calls are lost.
+- **Check an op once before its first use** when this file has no row for it: `ae_catalog <category>` (guessed param names cost failed batches).
+- **Timing work** (keys of many layers, SFX on overlays): `ae_project_export_json` to a file + a local Python walker, never `layer.info`. Keyframe times in the export are already in the containing comp's time - do not add the layer's start time again.
+- `project.find_layers` always with a filter (`namePattern`, `type`); `item.list` only with a filter - the project map gives ids.
 
 - Verify with `layer.bounds` and `comp.sample`. `comp.info` of a big comp (60+ layers), `layer.info` on precomps, and `item.list` without a filter cost 5-25k tokens each.
 - Never `effect.list_on_layer` / `layer.info` on layers carrying Deep Glow, Keylight or other plugins with 80-160 params: address effects by index.
@@ -34,6 +42,7 @@ Learned the hard way with `@kumoproductions/mcp-aftereffects` on AE 2026 (26.x),
 
 ## Session flow pitfalls
 
+- **`NO_INSTANCE` while AE is open:** a hidden modal dialog blocks it - check `instance.dialogs` first, before restarting anything.
 - **AE not up yet:** calls during boot give `NO_INSTANCE`. Check the AfterFX process has a window title / `Responding=True` before the first call. Start AE normally, not with `-m`.
 - **Big project open:** `project.open` of a 15+ MB project can time out while AE keeps opening it. Use `timeoutMs: 300000`, then wait for `Responding=True` and `ae_project_info`.
 - **"Attempt was made to run a second script" dialog:** appears after big batches, saves or `project.open`; the next call is discarded entirely (nothing applied). `instance.dismiss_dialog {id}` and resend the same call - no partial-state check needed. Run `project.merge` as its own call, never inside a batch. If it keeps coming back and the project is saved from outside, another client drives the same AE: stop and ask.

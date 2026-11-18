@@ -31,6 +31,7 @@ It is built around one constraint: **every token counts**. Heavy work happens in
 - **Free elements, with their licence and a token estimate.** Photos, textures and backgrounds (Unsplash, Pexels, Pixabay, StockSnap), vectors and illustrations (unDraw, Wikimedia, Openverse, links to real `.ai`/`.eps` sources), icons, logos, PBR materials, HDRIs, 3D models, Lottie animations, fonts and sound. Everything lands in `KeremKit/assets/` with a SOURCES.md and an index, so nothing is downloaded twice. Ask "which sites can I use?" and Claude lists each site's strengths, everything it offers and what using it costs in tokens.
 - **Token budget.** Before each step Claude says what it will roughly cost (low / medium / high). Premiere builds run through a batch runner that turns dozens of tool answers into one line each, and the agent keeps notes on what was expensive so the kit gets cheaper with use.
 - **Download footage that imports.** Videos from YouTube, TikTok, Instagram and other sites, in the quality you name. *Premiere fix* downloads H.264 so Premiere takes it right away; *4K + repair* keeps 4K/60 and re-encodes it to H.264 so Premiere takes that too. Files that Premiere refuses can be repaired the same way.
+- **Fast After Effects projects.** On by default: heavy parts (3D, glows, mockups) live in their own 30 fps precomps, 3D is built and rendered first and slides, scales and motion blur are added to the rendered plate afterwards; plates are rendered only when you say yes, checked frame by frame and swapped reversibly. Every rule can be switched off.
 - **Clean, organised projects.** Layers are named, ordered and colour-labelled after every edit (your rules), a quality check runs before the final render, and one edit becomes 16:9, 9:16 and 1:1 versions.
 - **Projects that remember across chats.** A small `_keremkit/` folder next to each project keeps a searchable map of comps and open items, one canonical name per element and the project's brand kit (colours, fonts, motion and effect values), so the next chat continues in the same look. Library items carry a `LOGIC.md` so their effect can be rebuilt on any other element. After a bulk change you get a list of exact times to check.
 - **Preferences that stick.** Nothing is assumed. Each choice is asked once, when it matters, and remembered.
@@ -160,7 +161,7 @@ plugins/keremkit/
     references/                        loaded only when a task needs them
     scripts/                           transcript, cutlist, subtitles, editplan, audio, sfx, qc,
                                        techniques, tokens, presets, videoref, previews, assets, keremkit, digest,
-                                       prproj, download
+                                       prproj, download, prbatch
     assets/                            example style, tokens and library metadata
 docs/                                  user documentation
 examples/                              sample style, plan and subtitle rules
@@ -179,7 +180,7 @@ python tools/build_skill.py  # dist/keremkit-<version>.zip
 
 `tests/test_repo.py` also checks repository consistency (metadata, docs links, changelog/version, the skill zip) without needing After Effects or media.
 
-Tagging `v*` builds the zip and attaches it to a GitHub release. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Tagging `v*` builds the zip and attaches it to a GitHub release. See [CONTRIBUTING.md](CONTRIBUTING.md), including the maintainer handoff rule.
 
 ## License
 

@@ -15,6 +15,8 @@ Before a final render (and on "check everything"): `qc.mode` decides - `auto` (a
 | Work area | `comp.info` | work area shorter than the edit |
 | Names | layer/comp names vs `_keremkit/names.tsv` (`keremkit.py map name`) | the same thing under two names, or a name outside `standards.md` |
 | Motion blur | switches of animated layers vs `motion.blur` (`motion-blur.md` §5) | off while the preference is `always`; layer switch in an Advanced 3D comp |
+| Optimization | `HVY_` comps, `PLT_` layers, draft leftovers (`optimization.md` §9) | wrong heavy fps, Preserve frame rate off, collapsed `HVY_` layer, frame blending on; plate missing/stale/wrong alpha, `HVY_` and `PLT_` both visible; Draft 3D, effect switches off or proxies left on |
+| Motion rig | animated layers' own Transform keys vs `motion.transform_rig` | element keys on its own Position/Scale/Rotation/Opacity while the rig is `parent_null` |
 
 ## On the rendered file
 

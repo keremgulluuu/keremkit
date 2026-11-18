@@ -33,6 +33,14 @@ Guidelines:
 - **Skill text** (`SKILL.md`, `references/`) should stay lean. `SKILL.md` is read on every task; put detail in the reference file that needs it.
 - **No personal defaults.** Anything that depends on the user goes into preferences and is asked when needed.
 
+## Maintainer handoff (every release)
+
+Development of KeremKit passes from one maintainer (or AI agent session) to the next. So that nothing is lost:
+
+1. **Before starting:** read the latest handoff file and the last release reports in the maintainers' private development repository (for this repository: `keremgulluuu/keremkit-dev`, private - ask the owner for access). Its `DEVELOPING.md` holds the development rules; follow them.
+2. **After every release:** write what changed (files, tests, version, open items) as a release report, update the handoff file, and push both to that private repository. Give the same files to the owner.
+3. Forks keep their own private development repository the same way.
+
 ## Releasing
 
 1. Move the `[Unreleased]` notes in `CHANGELOG.md` under the new version heading.

@@ -40,6 +40,13 @@ Set them in one op: `comp.set_props {motionBlur: true, shutterAngle, shutterPhas
 
 Say in one line which values you use when the style has none, and save what the user keeps into their style (or `house-style.md` for every edit).
 
+## 3b. Speed (`optimization.md` §5)
+
+- Blur the final 2D move on a pre-rendered plate (`PLT_`) in the final comp, not inside the heavy 3D comp.
+- Inside an `HVY_` comp at 30 fps, shutter 180 = a 1/60 s streak (the same as 360 at 60 fps); it also hides the 30 fps steps.
+- On a rig: the child layer's switch must be on to blur a parent Null's move; a Transform effect used as the rig needs "Use Composition's Shutter Angle" off and its own angle.
+- Switch blur on only for layers that move fast enough to streak.
+
 ## 4. Building it
 
 1. Read `motion.blur` and the style. `off` → skip. `ask` / null → one question with what it changes (render time vs. smoother motion) and a ★ recommendation.

@@ -16,6 +16,7 @@ Why: consistent prefixes let Claude find layers by name (`project.find_layers na
 | `LIB_` | library item | `LIB_UI-008_GoldCounter` |
 | `TPL_` | template to fill | `TPL_LowerThird` |
 | `OUT_` | final render comp | `OUT_YouTube_16x9` |
+| `HVY_` | heavy part at `optimize.heavy_fps` (3D, glows, dense animation; `optimization.md`) | `HVY_Phone_Turn` |
 
 | Layers | Meaning | Example |
 |---|---|---|
@@ -30,6 +31,7 @@ Why: consistent prefixes let Claude find layers by name (`project.find_layers na
 | `SFX_` | sound effect | `SFX_Transition_03` |
 | `CTRL_` | control null with sliders | `CTRL_Counter` |
 | `NULL_` / `ADJ_` / `CAM_` / `LGT_` / `MATTE_` | null / adjustment / camera / light / matte source | `ADJ_Grade` |
+| `PLT_` | pre-rendered plate of an `HVY_` comp (`optimization.md` §3) | `PLT_Phone_Turn` |
 
 Project folders: `01_SCENES`, `02_PRECOMPS`, `03_FOOTAGE`, `04_AUDIO` (with `SFX`), `05_LIBRARY`, `99_ARCHIVE`. Apply in new projects or when asked; never reorganise an existing project unasked. Bulk renames: `project.rename` with `dryRun: true` first, then checkpoint, then apply.
 
@@ -59,9 +61,13 @@ These are suggestions, not the kit's taste. Say which ones you are about to use 
 
 ## Motion mechanisms (the user's preferences decide)
 
-- **Transform rig** - `motion.transform_rig` (null = ask once, the first time something is animated):
-  - `parent_null`: every transform animation (Position/Scale/Rotation) is keyed on a parent Null (`NULL_<Element>` / `CTRL_<Element>`); the layer itself gets no transform keys. A layer that must also move on its own gets a second null (null chain) or a Transform effect on the layer. Duplicating an element = duplicate the null with its children.
-  - `direct`: keys on the layer itself.
+- **Transform rig** - `motion.transform_rig` (default `parent_null`; the user can switch to `direct`):
+  - `parent_null`: no keyframe ever goes on an element's own Transform (Position/Scale/Rotation/Opacity). Every move is keyed on, in this order of preference:
+    1. a parent Null (`NULL_<Element>` / `CTRL_<Element>`): `layer.create_null` (anchor set explicitly, `ae-ops.md`) + `layer.set_parent {parentLayer, jump: true}`; a second move on the same element = a second null (null chain);
+    2. an adjustment layer (`ADJ_`) for moves that act on everything below it (shake, zoom, grade pulses);
+    3. at worst a Transform effect on the layer (`effect.add` matchName `ADBE Geometry2`), for opacity or a move that cannot be parented.
+    Duplicating an element = duplicate the null with its children. Opacity fades: Transform effect Opacity or a precomp, not the layer's own Opacity.
+  - `direct`: keys on the layer itself (only when the user chose it).
 - **Motion blur** - `motion.blur` and `motion-blur.md`.
 - Both are recorded per project in `_keremkit/brandkit.md` → Motion when a project differs from the preference.
 

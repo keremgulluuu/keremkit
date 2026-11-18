@@ -33,7 +33,7 @@ def test_pref_set_needs_key_value_in_one_argument(kk):
 
 def test_new_preferences_start_unanswered(kk):
     missing = k(kk, "pref", "missing").stdout
-    for key in ("motion.transform_rig", "motion.blur", "organize.precomp_elements"):
+    for key in ("motion.blur", "organize.precomp_elements"):   # motion.transform_rig has a default since 2.2.0
         assert key in missing
 
 

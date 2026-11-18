@@ -30,7 +30,8 @@ KeremKit/
 ```
 
 - Find the folder with `python <this skill's folder>/scripts/keremkit.py where`; after that use the copies in `<home>/tools/`. "tools/x.py" below means `<home>/tools/x.py`. On `NOT_SET_UP` or a first request, follow `references/setup.md`.
-- **Tools version:** once per session run `keremkit.py version` (this skill is `KeremKit 2.1.0`). If it differs, say so in one line; update the tools only when the user asks.
+- **Remember the locations:** if you have persistent memory (Claude Code auto-memory, claude.ai memory), run `keremkit.py where --all` once and save its lines as ONE memory "KeremKit locations" (home, tools, styles, library, assets, learning, projects and the other folders it prints). Update that same memory when a location changes; never add a second one. Next sessions take the paths from memory and confirm them with a plain `where`.
+- **Tools version:** once per session run `keremkit.py version` (this skill is `KeremKit 2.2.0`). If it differs, say so in one line; update the tools only when the user asks.
 - **Tools:** keremkit.py, transcript.py, cutlist.py, subtitles.py, editplan.py, audio.py, sfx.py, qc.py, techniques.py, tokens.py, presets.py, videoref.py, previews.py, assets.py, digest.py, prproj.py, download.py, prbatch.py. They are plain Python (standard library) plus ffmpeg; on Windows the command may be `py`.
 
 ## No edit templates - the user's styles decide
@@ -105,6 +106,7 @@ ASCII `PREFIX_PascalName[_01]` inside AE (comps `SCN_ PRE_ LIB_`, layers `TXT_ U
 | Resuming or continuing a project, brand kit, canonical names | `references/project-map.md` |
 | AE op parameters, AE 2026 / Advanced 3D pitfalls | `references/ae-ops.md` |
 | Motion blur | `references/motion-blur.md` |
+| AE speed: heavy parts (3D, glows, mockups), pre-render plates, slow previews/renders | `references/optimization.md` |
 | Chapters, titles, thumbnails, export to other editors | `references/publish.md` |
 | Anything in Premiere Pro (XML, MCP, MOGRT, project/sequence names, styles from .prproj) | `references/premiere.md` |
 | Downloading a video, Premiere fix, 4K + repair | `references/downloads.md` |
@@ -120,5 +122,6 @@ ASCII `PREFIX_PascalName[_01]` inside AE (comps `SCN_ PRE_ LIB_`, layers `TXT_ U
 - Before designing, read `learning/house-style.md` and the active style. A design with several parts starts with a numbered plan.
 - Offer once to save a reusable element. After an edit, ask once whether to save what was learned.
 - Tidy layers after an edit (`organize.md`) unless `organize.mode` is off.
+- **AE builds are optimized** while `optimize.mode` is on (default): heavy parts in `HVY_` precomps at `optimize.heavy_fps`, 3D first then 2D moves on its plate, plates rendered only after the user's yes (`references/optimization.md`). Moves go on a null / ADJ_ / Transform effect, never the element's own transform (`motion.transform_rig`).
 - **Project map** `_keremkit/` next to the project (`keremkit.py map`): log, map, canonical names, brand kit. Read it by search first when resuming; new elements reuse its brand kit.
 - Something broken on the user's machine → `keremkit.py doctor`. First library use in a session → `previews.py scan --brief`.

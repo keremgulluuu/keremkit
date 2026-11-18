@@ -172,12 +172,17 @@ def cmd_fix(a):
         sys.exit("ERROR: an earlier fix added or deleted words in this file, so word indices no longer match "
                  "`transcript.py words` of the raw file. Anchor these fixes by time + old text, or apply every index "
                  "fix in ONE pass on the raw file (--force-index only if the indices were taken from THIS file).")
+    fixed = {int(c["index"]) for c in by_index}
     for c in by_index:
         i = int(c["index"])
         if not 0 <= i < len(ws):
             missed.append({"time": 0, "old": f"#{i}"})
             continue
         w = ws[i]
+        if not str(c["new"]).split() and i - 1 in fixed and i >= 1:
+            # merge ("N bir sekiz" -> "N18"): the word before takes over this word's time span,
+            # otherwise a later cut would drop the merged word's tail
+            ws[i - 1]["end"] = max(ws[i - 1].get("end", 0), w.get("end", 0))
         lead = " " if (w.get("word") or "").startswith(" ") else ""
         tail = re.search(r"[.,!?;:…]+$", text_of(w))
         new = str(c["new"]).split()

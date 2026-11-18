@@ -72,9 +72,11 @@ A short question box (wrap-up, AskUserQuestion) gets this explanation in the mes
 | `qc.mode` | default `ask` | "Should I always run the quality check before the final render?" |
 | `organize.mode` | default `auto`; change when the user asks | - |
 | `organize.precomp_elements` | the first time a multi-layer element lands in a main comp | "Should every multi-layer element become one precomp in the main comp (tidier, one layer per element), unless that would break it?" → `on` / `off` / `ask` |
-| `motion.transform_rig` | the first time something is animated in AE | "Should moves be keyed on a parent Null (layer keeps no own transform keys; easy to duplicate and re-time) or directly on the layer?" → `parent_null` / `direct` |
+| `motion.transform_rig` | default `parent_null` (null / ADJ_ / Transform effect, never the element's own transform; `standards.md`) - never asked; `direct` only when the user says so | - |
 | `motion.blur` | the first time something animates | "Should animations get motion blur? It looks smoother, renders slower." → `always` / `ask` / `off` (`motion-blur.md`) |
 | `learning.ask_after_edit` | default true | - |
+| `optimize.*` | on by default, never asked (`optimization.md`): `mode` on, `heavy_fps` 30, `prerender` ask (plates only after the user's yes), `intermediate` png, `screen` matte; changed when the user says so | - |
+| `optimize.setup_checked` | the first AE build | the one-time AE settings checklist (`optimization.md` §8), then the date |
 
 ## Style versioning
 

@@ -8,7 +8,7 @@ cut too fast, add 1 s of breathing room" becomes one command instead of a re-edi
 Commands
   build   --words W.json --media FILE [--preset tight|normal|relaxed]
           [--pad-before S] [--pad-after S] [--max-pause S] [--duration S] [--fps N]
-          [--silence auto|on|off] [--noise-db DB] [--remove repeats.json] -o cut.json
+          [--silence auto|on|off] [--noise-db DB] [--remove repeats.json] [--min-keep S] -o cut.json
           Pauses are found in the real audio (ffmpeg silencedetect) and confirmed with the words;
           --remove drops repeats/false starts found by transcript.py.
   show    cut.json [--from A --to B]          compact summary (+ boundaries in range)
@@ -22,8 +22,10 @@ Commands
   undo    cut.json                            revert the last edit
   zoom    cut.json [--levels 100 110] [--emphasis subs.json] -o zoom.json
                                               jump-cut zoom framing per segment + the AE Scale expression
-  export  cut.json --format xmeml|edl|fcpxml -o FILE
+  export  cut.json --format xmeml|edl|fcpxml -o FILE [--seq-fps N] [--seq-size WxH]
                                               xmeml = Premiere (FCP7 XML, linked); fcpxml = Final Cut / Resolve
+                                              --seq-fps/--seq-size: sequence at its own rate/size (xmeml only),
+                                              the file keeps its own (NTSC-aware) rate, video scaled to fit
   render  cut.json -o OUT [--crf N] [--x264-preset P] [--run]
                                               build (and with --run, execute) the ffmpeg render
 
@@ -346,8 +348,15 @@ def cmd_build(a):
         else:
             merged.append(iv)
     removals, n_rem = load_removals(a.remove, a.include_uncertain)
+    slivers = 0
     if removals:
         merged = subtract(merged, removals)
+        # a pad meeting a removal edge leaves tiny kept pieces (~0.04 s) with no word in them: drop them
+        centres = [(s + e) / 2 for s, e in word_iv]
+        keep = [iv for iv in merged
+                if iv[1] - iv[0] >= a.min_keep or any(iv[0] <= c <= iv[1] for c in centres)]
+        slivers = len(merged) - len(keep)
+        merged = keep
     segs = normalize(merged, fps, dur)
     cl = {"kk": "cutlist", "version": 2, "media": os.path.abspath(a.media), "duration": round(dur, 4),
           "fps": fps, "has_video": has_v, "has_audio": has_a,
@@ -361,7 +370,8 @@ def cmd_build(a):
     print(f"OK segments={len(cl['segments'])} source={fmt(dur)}s output={fmt(cl['out_duration'])}s "
           f"removed={fmt(removed)}s ({removed / dur * 100:.0f}%) preset={a.preset} mode={mode}"
           + (f" repeats_removed={n_rem} ({rep_s:.1f}s)" if n_rem else "")
-          + (f" in_word_gaps_kept={inside}" if inside else ""))
+          + (f" in_word_gaps_kept={inside}" if inside else "")
+          + (f" slivers_dropped={slivers}" if slivers else ""))
     for x, y, lv in loud:
         print(f"WARN loud audio without words {fmt(x)}-{fmt(y)}s ({lv} dB) "
               + ("REMOVED (--drop-wordless)" if a.drop_wordless else "KEPT - ask the user; --drop-wordless removes it"))
@@ -494,7 +504,8 @@ def cmd_restore(a):
     cl["segments"] = [{"src_in": x, "src_out": y} for x, y in merged]
     save(a.cutlist, cl, f"restore src {fmt(a.src_from)}-{fmt(a.src_to)}", prev)
     o = src_to_out(load(a.cutlist), a.src_from)
-    print(f"OK restored src {fmt(a.src_from)}-{fmt(a.src_to)} now at out {fmt(o)} "
+    where = fmt(o) if o is not None else "n/a"
+    print(f"OK restored src {fmt(a.src_from)}-{fmt(a.src_to)} now at out {where} "
           f"output={fmt(load(a.cutlist)['out_duration'])}s")
 
 
@@ -644,29 +655,48 @@ def probe_av(media):
     return w, h, sr, ch
 
 
-def xmeml(cl, fps, title):
+def xml_rate(fps):
+    ntsc = "TRUE" if abs(fps - round(fps)) > 0.001 else "FALSE"
+    return f"<rate><timebase>{int(round(fps))}</timebase><ntsc>{ntsc}</ntsc></rate>"
+
+
+def xmeml(cl, fps, title, seq_fps=None, seq_size=None):
     """FCP7 XML (xmeml v4) that Premiere imports linked: one master clip (file defined once, the rest
-    reference file-1), V1 + one audio track, contiguous integer frames."""
+    reference file-1), V1 + one audio track, contiguous integer frames.
+    seq_fps / seq_size: the sequence gets its own rate and frame size; the file keeps its own rate
+    (NTSC aware), clip times are in sequence frames and the video is scaled to fit (Basic Motion)."""
     from urllib.parse import quote
     from xml.sax.saxutils import escape
     media = cl["media"]
     clip = escape(os.path.basename(media))
     W, H, SR, CH = probe_av(media)
-    tb = int(round(fps))
-    ntsc = "TRUE" if abs(fps - round(fps)) > 0.001 else "FALSE"
-    rate = f"<rate><timebase>{tb}</timebase><ntsc>{ntsc}</ntsc></rate>"
+    frate = xml_rate(fps)                       # the file's own rate
+    sfps = seq_fps or fps
+    rate = xml_rate(sfps)                       # sequence + clip items
+    SW, SH = seq_size or (W, H)
     url = escape("file://localhost/" + quote(media.replace("\\", "/").lstrip("/"), safe="/:"))
-    dur = int(round(cl["duration"] * fps))
+    fdur = int(round(cl["duration"] * fps))
+    dur = int(round(cl["duration"] * sfps))
+    ftcode = f"<timecode>{frate}<string>00:00:00:00</string><frame>0</frame><displayformat>NDF</displayformat></timecode>"
     tcode = f"<timecode>{rate}<string>00:00:00:00</string><frame>0</frame><displayformat>NDF</displayformat></timecode>"
     has_v = cl.get("has_video", True) is not False
     has_a = cl.get("has_audio", True) is not False
-    vchar = (f"<samplecharacteristics>{rate}<width>{W}</width><height>{H}</height>"
+    vchar = (f"<samplecharacteristics>{frate}<width>{W}</width><height>{H}</height>"
              "<pixelaspectratio>square</pixelaspectratio></samplecharacteristics>")
+    schar = (f"<samplecharacteristics>{rate}<width>{SW}</width><height>{SH}</height>"
+             "<pixelaspectratio>square</pixelaspectratio></samplecharacteristics>")
+    motion = ""
+    if (SW, SH) != (W, H):
+        scale = round(min(SW / W, SH / H) * 100, 4)
+        motion = ("<filter><effect><name>Basic Motion</name><effectid>basic</effectid><effectcategory>motion"
+                  "</effectcategory><effecttype>motion</effecttype><mediatype>video</mediatype>"
+                  '<parameter authoringApp="PremierePro"><parameterid>scale</parameterid><name>Scale</name>'
+                  f"<valuemin>0</valuemin><valuemax>1000</valuemax><value>{scale}</value></parameter></effect></filter>")
     achar = f"<samplecharacteristics><depth>16</depth><samplerate>{SR}</samplerate></samplecharacteristics>"
-    file_full = (f'<file id="file-1"><name>{clip}</name><pathurl>{url}</pathurl>{rate}<duration>{dur}</duration>{tcode}'
+    file_full = (f'<file id="file-1"><name>{clip}</name><pathurl>{url}</pathurl>{frate}<duration>{fdur}</duration>{ftcode}'
                  "<media>" + (f"<video>{vchar}</video>" if has_v else "")
                  + (f"<audio>{achar}<channelcount>{CH}</channelcount></audio>" if has_a else "") + "</media></file>")
-    rows = frame_segments(cl, fps)
+    rows = frame_segments(cl, sfps)
     V, A = [], []
     for i, (a0, b0, r0, r1) in enumerate(rows, 1):
         links = ""
@@ -678,7 +708,7 @@ def xmeml(cl, fps, title):
                 f"<start>{r0}</start><end>{r1}</end><in>{a0}</in><out>{b0}</out>")
         first = file_full if i == 1 else '<file id="file-1"/>'
         if has_v:
-            V.append(f'<clipitem id="v{i}">{base}{first}{links}</clipitem>')
+            V.append(f'<clipitem id="v{i}">{base}{first}{motion}{links}</clipitem>')
         if has_a:
             f = first if not has_v else '<file id="file-1"/>'
             A.append(f'<clipitem id="a{i}">{base}{f}<sourcetrack><mediatype>audio</mediatype>'
@@ -686,7 +716,7 @@ def xmeml(cl, fps, title):
     total = rows[-1][3] if rows else 0
     media_xml = ""
     if has_v:
-        media_xml += f"<video><format>{vchar}</format><track>{''.join(V)}</track></video>"
+        media_xml += f"<video><format>{schar}</format><track>{''.join(V)}</track></video>"
     if has_a:
         media_xml += (f"<audio><numOutputChannels>2</numOutputChannels><format>{achar}</format>"
                       f"<track>{''.join(A)}</track></audio>")
@@ -702,10 +732,17 @@ def cmd_export(a):
     clip = os.path.basename(media)
     out = []
     if a.format == "xmeml":
-        text, n, frames = xmeml(cl, fps, a.title or os.path.splitext(clip)[0] + "_cut")
+        size = None
+        if a.seq_size:
+            m = re.fullmatch(r"(\d+)[xX](\d+)", a.seq_size.strip())
+            if not m:
+                sys.exit("ERROR: --seq-size must look like 1080x1920")
+            size = (int(m.group(1)), int(m.group(2)))
+        text, n, frames = xmeml(cl, fps, a.title or os.path.splitext(clip)[0] + "_cut", a.seq_fps, size)
         with open(a.output, "w", encoding="utf-8", newline="\n") as f:
             f.write(text + "\n")
-        print(f"OK xmeml clips={n} frames={frames} fps={fps:g} -> {a.output} "
+        seq = f" seq={a.seq_fps or fps:g}fps" + (f" {size[0]}x{size[1]}" if size else "")
+        print(f"OK xmeml clips={n} frames={frames} fps={fps:g}{seq} -> {a.output} "
               "(Premiere: File > Import; HDR source -> set Color Setup after import, see premiere.md)")
         return
     if a.format == "edl":
@@ -760,6 +797,8 @@ def main():
     b.add_argument("--include-uncertain", action="store_true", help="also remove low-confidence repeats")
     b.add_argument("--drop-wordless", action="store_true",
                    help="also remove wordless audio as loud as speech (default: keep it and warn)")
+    b.add_argument("--min-keep", type=float, default=0.1,
+                   help="after --remove, drop kept pieces shorter than this with no word centre inside (s)")
     b.add_argument("-o", "--output", required=True)
     s = sp.add_parser("show")
     s.add_argument("cutlist")
@@ -813,6 +852,8 @@ def main():
     ex.add_argument("--fps", type=float)
     ex.add_argument("--start", type=float, default=0.0, help="record timecode offset (s)")
     ex.add_argument("--title")
+    ex.add_argument("--seq-fps", type=float, help="xmeml: sequence frame rate (file keeps its own)")
+    ex.add_argument("--seq-size", help="xmeml: sequence frame size WxH, e.g. 1080x1920 (video scaled to fit)")
     ex.add_argument("-o", "--output", required=True)
     a = ap.parse_args()
     if a.cmd == "add" and a.at is None and (a.frm is None or a.to is None):

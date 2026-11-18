@@ -114,8 +114,21 @@ def tc(t):
     return f"{int(t // 60):02d}:{t % 60:05.2f}"
 
 
+CHUNK = 40   # frames per ffmpeg select: hundreds of eq() terms fail on Windows ("Cannot allocate memory")
+
+
 def extract_thumbs(path, picks, fps, tw, th, tmp):
-    """One decode pass: every picked frame as a labelled JPG."""
+    """Every picked frame as a labelled JPG, in chunks of CHUNK frames per decode pass."""
+    out = {}
+    for k in range(0, len(picks), CHUNK):
+        part = picks[k:k + CHUNK]
+        sub = os.path.join(tmp, f"c{k // CHUNK:03d}")
+        os.makedirs(sub, exist_ok=True)
+        out.update(extract_chunk(path, part, tw, th, sub))
+    return out
+
+
+def extract_chunk(path, picks, tw, th, tmp):
     sel = "+".join(f"eq(n\\,{f})" for f in picks)
     label = ("drawtext=text='%{pts\\:hms}':x=4:y=4:fontsize=13:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=3")
     base = f"select='{sel}',scale={tw}:{th}"

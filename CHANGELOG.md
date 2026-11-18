@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - 2026-11-18
+
+### Added
+- **After Effects optimization, on by default** (`references/optimization.md`, preferences `optimize.*`): heavy parts (3D, glows, dense animation, big textures) go into `HVY_` precomps at `optimize.heavy_fps` (30 - divides 60 evenly) with Preserve frame rate; pre-rendered `PLT_` plates only after the user's yes, with disk check, frame-count and alpha checks, a reversible swap and a stale-plate log; 3D first, 2D moves on the plate (phone mockups: turn rendered, slide/scale/blur added after; screen designs through a matte pass + posterized corner pin, or green screen); glow, sparkle and 3D-logo rules; general speed rules (comp size, bit depth, big stills, trimmed adjustment layers, expressions, GPU effects); a one-time AE settings checklist; QC checks.
+- `keremkit.py where --all`: every location the agent should keep in persistent memory; SKILL.md tells agents with memory to save it once as one "KeremKit locations" memory.
+- Maintainer handoff rule (`CONTRIBUTING.md`, `CLAUDE.md`): every release's handoff and report go to the maintainers' private development repository, and the next maintainer reads them there first.
+- `cutlist.py export --seq-fps N --seq-size WxH` (xmeml): the sequence at its own rate and size, the file keeps its own NTSC-aware rate, video scaled to fit.
+- `cutlist.py build --min-keep S` (default 0.1): kept slivers at removal edges without a word are dropped.
+- Style sections for complete styles (`edit-styles.md`): exact palette, background/light logic, branding, typography, per-family motion, element logic (`where_what`, density), `not_part_of_style`, `open_questions` (a style is a draft until it is empty).
+- `ae-ops.md`: one AE call at a time, check an op in `ae_catalog` before first use, export + walker for timing work (export key times are already comp time), `instance.dialogs` on `NO_INSTANCE`, more parameter names.
+
+### Changed
+- `motion.transform_rig` defaults to `parent_null`: moves go on a parent null, an adjustment layer or a Transform effect, never on the element's own transform (QC checks it).
+- A preference section left `null` now gets its defaults instead of hiding every key in it.
+
+### Fixed
+- `cutlist.py restore` crashed in its final print when the restored range had no output time yet (the edit was saved, the exit code was 1).
+- `videoref.py`: frame extraction failed on Windows for long, busy videos (hundreds of `eq()` terms); frames are now taken in chunks of 40.
+- `transcript.py fix`: merging words by index (`"new": ""` for the following words) kept only the first word's end time; the merged word now spans to the last one.
+
 ## [2.1.0] - 2026-11-13
 
 ### Added

@@ -5,7 +5,8 @@ The KeremKit home folder holds everything that changes over time (preferences, l
 styles, lessons), so the skill itself never needs re-installing. This tool does the
 bookkeeping on the user's computer and prints only short results.
 
-  where                                   print the home folder (pointer file or default)
+  where [--all]                           print the home folder (pointer file or default);
+                                          --all: every location the agent should remember (memory)
   init     [HOME]                         create/repair the home folder + pointer file
   pref     get  [KEY]                     read a preference (dotted key) or the whole section
   pref     set  KEY=VALUE [KEY=VALUE ...] write preferences (VALUE is JSON, or a plain string)
@@ -48,7 +49,7 @@ import sys
 import unicodedata
 from datetime import date
 
-KIT_VERSION = "2.1.0"
+KIT_VERSION = "2.2.0"
 POINTER = os.path.join(os.path.expanduser("~"), ".keremkit.json")
 DEFAULT_HOME = os.path.join(os.path.expanduser("~"), "Documents", "KeremKit")
 CATALOG_COLS = ["id", "type", "category", "name", "local_name", "summary", "folder", "search"]
@@ -112,8 +113,16 @@ DEFAULT_PREFS = {
         "precomp_elements": None,  # on | off | ask - one layer (+ control null) per multi-layer element in the main comp
     },
     "motion": {
-        "transform_rig": None,     # parent_null | direct - drive transform animation from a parent Null, or key the layer itself
+        "transform_rig": "parent_null",  # parent_null (rig: NULL_/CTRL_ parent, ADJ_ layer or Transform effect) | direct
         "blur": None,              # always | ask | off - motion blur on animations (references/motion-blur.md)
+    },
+    "optimize": {                  # AE speed rules (references/optimization.md) - on by default
+        "mode": "on",              # on | off
+        "heavy_fps": 30,           # frame rate of HVY_ precomps (30 divides 60 evenly: every frame shown twice)
+        "prerender": "ask",        # ask (render HVY_ plates only after the user's yes) | off (keep them live)
+        "intermediate": "png",     # png (PNG sequence, RGB+alpha, straight) | prores4444 | h264 (no alpha)
+        "screen": "matte",         # matte (screen matte pass + corner pin) | green (green-screen render + key)
+        "setup_checked": None,     # null = the one-time AE settings checklist was not shown yet; date when done
     },
     "audio": {"chain": None, "target_lufs": -14, "music_db": -18},
     "formats": {"targets": None},
@@ -222,6 +231,8 @@ def deep_fill(target, defaults):
             target[k] = json.loads(json.dumps(v))
         elif isinstance(v, dict) and isinstance(target[k], dict):
             deep_fill(target[k], v)
+        elif isinstance(v, dict) and target[k] is None:
+            target[k] = json.loads(json.dumps(v))   # a whole section left null -> its defaults
     return target
 
 
@@ -230,6 +241,26 @@ def cmd_where(a):
     h = home_dir(a.home)
     ok = os.path.isdir(os.path.join(h, "settings"))
     print(f"{'READY' if ok else 'NOT_SET_UP'}\t{h}")
+    if not (ok and getattr(a, "all", False)):
+        return
+    prefs = deep_fill(rjson(prefs_path(h), {}), DEFAULT_PREFS)
+    rows = [("home", h)] + [(d, os.path.join(h, d)) for d in
+                            ("tools", "settings", "library", "styles", "assets", "learning", "extensions", "models")]
+    pa = prefs.get("paths") or {}
+    rows += [("projects", pa.get("projects")), ("work_files", pa.get("work_files")),
+             ("premiere.project_folder", (prefs.get("premiere") or {}).get("project_folder")),
+             ("render.output_folder", (prefs.get("render") or {}).get("output_folder")),
+             ("download.last_folder", (prefs.get("download") or {}).get("last_folder"))]
+    for k, v in sorted(((pa.get("materials") or {}).items())):
+        if v:
+            rows.append((f"materials.{k}", v))
+    for k in ("footage_folders", "presets"):
+        for v in pa.get(k) or []:
+            rows.append((k, v))
+    for k, v in rows:
+        if v:
+            print(f"{k}\t{v}")
+    print("MEMORY\tsave these lines as ONE memory 'KeremKit locations' (update it, never add a second one)")
 
 
 def cmd_init(a):
@@ -1199,7 +1230,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--home")
     sp = ap.add_subparsers(dest="cmd", required=True)
-    sp.add_parser("where")
+    w = sp.add_parser("where")
+    w.add_argument("--all", action="store_true", help="every location to remember")
     i = sp.add_parser("init")
     i.add_argument("path", nargs="?")
     p = sp.add_parser("pref")

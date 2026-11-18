@@ -18,6 +18,14 @@ Styles live in `KeremKit/styles/<slug>/style.json` and are listed in the catalog
 | `sfx` | Style-level SFX rules (see `sound-effects.md`) |
 | `render` | Overrides of render preferences |
 | `editing` | Rhythm rules for edit plans (`edit-plan.md`): shot length range, per-kind limits, kinds that must not follow each other, keys per sentence |
+| `look.palette` | Every colour as exact hex with its role (background, text, accent, glow, shadow) - never "blue-ish" |
+| `look.background` | Background and lighting logic: what sits behind the content, light direction, how supporting lights/glows are placed (e.g. light under the hero element) |
+| `branding` | Logos, brand colours, fonts, and the real-brand rule (real logos/designs for named brands, or not) |
+| `typography` | Fonts per role (PostScript names), sizes, weights, tracking, case, stroke/shadow |
+| `motion_families` | Per element family (cards, text, logos, UI, overlays): entrance and exit animation with durations, eases and offsets |
+| `element_logic` | Design intelligence: `where_what` (which kind of element or composition fits which kind of moment in the script), density (how many per minute, gaps), how supporting parts are placed |
+| `not_part_of_style` | What looks like style in the source but is not (one-offs, leftovers), each with a reason |
+| `open_questions` | Everything not yet known. A style is finished only when this list is empty |
 | `rules` | Any other rule, one sentence each |
 | `changelog` | Version history; `version` |
 
@@ -52,6 +60,7 @@ Three ways - all end with a draft shown to the user for confirmation, then `kere
 - **From a reference video:** `video-reference.md` - rhythm, look and motion measured from the video, then confirmed with the user.
 - **From a finished project:** `ae_project_export_json(outPath=...)` -> `digest.py <file> [--comp SCN_...]` (`--deep` per animated comp) -> draft style from the digest (fonts, palette, layer roles, effects, comp formats) -> ask about what a project cannot show (cut tightness, split cues, SFX intent).
 - **From a Premiere project (.prproj):** on a copy, `prproj.py analyze` -> draft; Premiere-only parts go under `"premiere"` in style.json. Steps in `premiere.md` -> Learning a style.
+- **Every detail, nothing assumed:** a style is not a list of elements. Fill every section of the table above with exact values (hex, seconds, eases, font names). Anything unknown goes into `open_questions` and is asked; a style with a non-empty `open_questions` is saved as `"status": "draft"` and never called finished or used for a whole edit without saying which parts are open.
 - **Before writing `styles/<slug>/style.json`, always** `keremkit.py search "<name>" --type style`. Same name = same slug = same folder: if it exists, ask (a new version through the archive, or a new name). Never write over a style.
 
 ### Learning from a finished project: the checklist
