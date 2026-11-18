@@ -101,7 +101,7 @@ def test_learning_archive(kk):
     assert "## B" in left and "## A" not in left and left.startswith("# Requests")
     arch = (kk / "learning" / "skill-change-requests.archive.md").read_text(encoding="utf-8")
     assert "## A (2026-11-12)" in arch
-    assert (kk / "learning" / "skill-change-requests.md.bak").exists()
+    assert list((kk / "learning").glob("skill-change-requests.md.bak-*"))
 
 
 def test_save_check_reminds_logic(tmp_path, kk):

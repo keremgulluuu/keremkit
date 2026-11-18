@@ -21,6 +21,7 @@ Styles live in `KeremKit/styles/<slug>/style.json` and are listed in the catalog
 | `look.palette` | Every colour as exact hex with its role (background, text, accent, glow, shadow) - never "blue-ish" |
 | `look.background` | Background and lighting logic: what sits behind the content, light direction, how supporting lights/glows are placed (e.g. light under the hero element) |
 | `branding` | Logos, brand colours, fonts, and the real-brand rule (real logos/designs for named brands, or not) |
+| `layout` | Spacing system: `base_unit`, `stroke_px` (at 100 % scale), `radius`, `padding`, `min_gap`, `edge_margin` (px); `design-plan.md` 0b |
 | `typography` | Fonts per role (PostScript names), sizes, weights, tracking, case, stroke/shadow |
 | `motion_families` | Per element family (cards, text, logos, UI, overlays): entrance and exit animation with durations, eases and offsets |
 | `element_logic` | Design intelligence: `where_what` (which kind of element or composition fits which kind of moment in the script), density (how many per minute, gaps), how supporting parts are placed |

@@ -14,6 +14,7 @@ Append to the batch that made the change:
 | Motion right at the right time? | `comp.sample` at 3-5 times, only relevant layers |
 | Anything missing? | `font.list_missing`, `footage.list_missing` |
 | Cut timeline consistent? | `comp.info`: placements end-to-start, no gaps/overlaps |
+| Build finished? | `qc.py ae-postcheck` (banned files, heavy effects outside `HVY_`, rig, colours, spacing - `qc.md`) |
 
 Safe rect for comp W x H and ratio r (`standards.safe_area.title`, e.g. 0.90): x in [W(1-r)/2, W(1+r)/2], y in [H(1-r)/2, H(1+r)/2]. For 9:16 also subtract `standards.vertical_ui_margin_px` (top/bottom/left/right).
 

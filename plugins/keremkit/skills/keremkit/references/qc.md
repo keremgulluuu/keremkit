@@ -18,6 +18,16 @@ Before a final render (and on "check everything"): `qc.mode` decides - `auto` (a
 | Optimization | `HVY_` comps, `PLT_` layers, draft leftovers (`optimization.md` §9) | wrong heavy fps, Preserve frame rate off, collapsed `HVY_` layer, frame blending on; plate missing/stale/wrong alpha, `HVY_` and `PLT_` both visible; Draft 3D, effect switches off or proxies left on |
 | Motion rig | animated layers' own Transform keys vs `motion.transform_rig` | element keys on its own Position/Scale/Rotation/Opacity while the rig is `parent_null` |
 
+## AE postcheck - the gate before "done" (every AE build, unasked)
+
+`ok:true` from a batch only says the ops ran. Before an AE build is called done:
+
+1. `ae_project_export_json(outPath=<project>/_keremkit/export.json)`, then
+   `qc.py ae-postcheck <export.json> --comp <main comp> [--style SLUG] [--samples s.json] [--bounds b.json --min-gap PX --edge PX --size WxH]`.
+2. Checks: **FAIL** a banned SFX file in the project; **FAIL** a heavy effect (glows, CC Force Motion Blur, RSMB, CC Glass, Displacement, Fractal Noise, Particular, Element...) in a comp that is not inside an `HVY_` comp while `optimize.mode` is on; WARN an `HVY_` comp not at `optimize.heavy_fps`; WARN keys on an element's own transform while `motion.transform_rig` is `parent_null`; WARN a sampled colour far from the style palette (CIE dE > 12); WARN overlaps, gaps below the minimum, elements too close to the frame edge.
+3. Colour and spacing need two small files from ONE batch: `comp.sample` at the rest frame of each `TXT_`/`UI_` layer -> `[{"layer","rgb"}]`; `layer.bounds` -> `[{"layer","left","top","width","height"}]`. Sample after the whole effect chain (fill -> toner -> contrast -> glow): the measured colour is what the viewer sees.
+4. Any FAIL: fix it (or ask, when the fix changes the look) and run it again. "Done" only with no FAIL; WARN lines go to the user in the review checklist below.
+
 ## On the rendered file
 
 `qc.py check <render>` -> one line per issue with its time: `BLACK`, `FROZEN`, `SILENCE` (long), `LOUDNESS` (off target), `TRUE_PEAK` (clipping risk), then a verdict line.

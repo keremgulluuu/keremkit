@@ -15,7 +15,7 @@ Makes Claude edit in After Effects and Premiere Pro like a disciplined editor wh
 - Keep replies short: what was done, 1-3 lines.
 - **Every question explains itself:** what was found (file/comp/time), why it is asked, the options and what each does, your pick marked ★. Never a bare yes/no (`references/preferences.md`).
 - **State only what was checked on the user's machine.** Never suggest backups, recovery, sync or version history that were not verified there.
-- Library items, categories and styles have an English `name` plus local names in `names` (`language.library`, set silently from the user's language).
+- Library, category and style names: English `name` + local `names` (`language.library`, from the user's language).
 
 ## The KeremKit home folder
 
@@ -29,34 +29,41 @@ KeremKit/
   tools/          the kit's scripts (+ tools/bin/ yt-dlp);  extensions/  user tools;  models/  local models;  cache/
 ```
 
-- Find the folder with `python <this skill's folder>/scripts/keremkit.py where`; after that use the copies in `<home>/tools/`. "tools/x.py" below means `<home>/tools/x.py`. On `NOT_SET_UP` or a first request, follow `references/setup.md`.
-- **Remember the locations:** if you have persistent memory (Claude Code auto-memory, claude.ai memory), run `keremkit.py where --all` once and save its lines as ONE memory "KeremKit locations" (home, tools, styles, library, assets, learning, projects and the other folders it prints). Update that same memory when a location changes; never add a second one. Next sessions take the paths from memory and confirm them with a plain `where`.
-- **Tools version:** once per session run `keremkit.py version` (this skill is `KeremKit 2.2.0`). If it differs, say so in one line; update the tools only when the user asks.
+- Find it with `python <this skill's folder>/scripts/keremkit.py where`; then use `<home>/tools/` ("tools/x.py" below). `NOT_SET_UP` or first request: `references/setup.md`.
+- **Remember the locations:** with persistent memory, save the output of `keremkit.py where --all` once as ONE memory "KeremKit locations"; update that memory when a location changes, never add a second. Later sessions confirm it with a plain `where`.
+- **Tools version:** once per session run `keremkit.py version` (this skill is `KeremKit 2.3.0`). If it differs, say so in one line; update the tools only when the user asks.
 - **Tools:** keremkit.py, transcript.py, cutlist.py, subtitles.py, editplan.py, audio.py, sfx.py, qc.py, techniques.py, tokens.py, presets.py, videoref.py, previews.py, assets.py, digest.py, prproj.py, download.py, prbatch.py. They are plain Python (standard library) plus ffmpeg; on Windows the command may be `py`.
 
 ## No edit templates - the user's styles decide
 
-The kit gives nobody an edit template; it makes managing the user's own styles easier, cheaper and systematic. Every creative or taste rule (timings, SFX placement, animations, transitions, how clips meet, looks, text sync, framing) belongs to the style the user names (ask which if unclear), or to `custom_rules` only when the user says it is for every edit. The references describe mechanisms, not taste.
+The kit gives nobody an edit template. Every creative or taste rule (timings, SFX placement, animations, transitions, looks, text sync, framing) belongs to the style the user names (ask which if unclear), or to `custom_rules` when the user says it is for every edit. The references describe mechanisms, not taste.
 
 ## The skill is read-only - the kit grows in the home folder
 
 Never edit, repackage or re-version this skill or `KeremKit/tools/`. Techniques → `techniques.py add`; new tools → `extensions/<id>/`; rules → `custom_rules` / `pref set`; solved problems → `learning/known-issues.md`; designs → the library. A real bug or missing mechanism in the skill (never a taste rule) → `learning/skill-change-requests.md` (format: `references/token-budget.md` §5), plus one line to the user.
+
+## Gates: preflight first, postcheck last
+
+- **Preflight:** the first tool call of every build, edit or SFX job is `keremkit.py preflight <task> [--style SLUG]` (tasks: ae-design, ae-build, sfx, edit, cut, subtitles, premiere, download, library). Its output - banned files, the custom_rules for this task, prefs, style tokens, what to read, the gate - is the checklist; it beats memory.
+- **Order when instructions meet:** explicit instruction in this request > the user's hand fixes > the named style > library defaults > Claude's choice. A real conflict with no instruction is asked, never resolved silently.
+- **Postcheck:** an AE build is done only when `qc.py ae-postcheck` shows no FAIL (`references/qc.md`). SFX files are chosen only from `sfx.py filter` output.
 
 ## Preferences - remember everything, ask once
 
 - Before anything that depends on a choice, read it with `keremkit.py pref get <key>`. Never assume a value.
 - `null` = never asked: ask once, when first needed (`references/preferences.md`), and save at once.
 - A lasting preference said in passing is saved and confirmed in one line.
-- Style settings override global ones. A real conflict is never resolved silently: state both and ask.
+- Style settings override global ones.
 
 ## Token rules (always on)
 
 1. **Estimate first.** Before every operation, say the expected cost in one line: `Tahmini token: az / orta / çok` (in the user's language), with a total for a multi-step plan. Classes and typical costs: `references/token-budget.md`.
-2. **No screenshots by default.** Verify with numbers (`references/verification.md`). Library previews and contact sheets are shown to the user; Claude does not open them.
-3. **After Effects:** `ae_context` once; op names and pitfalls from `references/ae-ops.md` (grep); many ops in one `batch.run` with `layer.bounds` / `comp.sample` checks at the end, not big `comp.info` / `layer.info`; exports to a file, read through `digest.py`; `ae_catalog` once per category.
+2. **No screenshots by default.** Verify with numbers (`references/verification.md`); previews and contact sheets are for the user.
+3. **After Effects:** `ae_context` once; op names and pitfalls from `references/ae-ops.md` (grep); many ops in one `batch.run` ending with `layer.bounds` / `comp.sample`, not big `comp.info` / `layer.info`; exports via `digest.py`; `ae_catalog` once per category.
 4. **Premiere:** more than ~5 calls → a `prbatch.py` plan; `expected_project_path` on every write; writes one at a time; narrow reads.
 5. **Heavy work runs locally** (Whisper, transcript.py, cutlist.py, subtitles.py, ffmpeg). Read their short results, never media or raw JSON.
-6. **Search, don't read:** before designing, downloading or analysing, `keremkit.py find <words>` (library, techniques, assets, extensions, past sessions in one call); one reference file at a time; resume a project from its map (`references/project-map.md`).
+6. **Search, don't read:** `keremkit.py find <words>` before designing, downloading or analysing; one reference at a time; resume from the project map (`references/project-map.md`).
+6b. **One feedback round = one session;** generated ops go to a file, never inline (`references/token-budget.md` §4).
 7. **Same method failed twice → stop** and report: what, error, likely cause, proposal.
 8. **Bulk change:** try it on one item, then apply to all.
 
@@ -88,27 +95,27 @@ ASCII `PREFIX_PascalName[_01]` inside AE (comps `SCN_ PRE_ LIB_`, layers `TXT_ U
 | A preference is null or the user states one | `references/preferences.md` |
 | Cost estimates, saving tokens, token notes, session reports | `references/token-budget.md` |
 | A named edit style, a new style, learning a style from a project | `references/edit-styles.md` |
-| Spoken recording: transcribe, fix words, retakes/repeats | `references/transcript.md`, then `references/cutting.md` |
+| Spoken recording: transcribe, fix words, retakes, wordless speech | `references/transcript.md`, then `references/cutting.md` |
 | Cutting silences, "add/remove time at X s" | `references/cutting.md` |
 | Voice-led edit with many shots | `references/edit-plan.md` |
 | A reference video to learn from | `references/video-reference.md` |
 | Subtitles | `references/subtitles.md` |
 | Sound effects | `references/sound-effects.md` |
-| Free elements: photo, video, texture, background, vector/.ai, icon, logo, 3D, Lottie, font, sound, templates; "which sites / what can I download?" | `references/assets.md` |
+| Free elements (photo, video, texture, vector/.ai, icon, logo, 3D, Lottie, font, sound); "which sites?" | `references/assets.md` |
 | A design with several parts | `references/design-plan.md` |
 | Copying a look from a reference | `references/design-import.md` |
 | Effect presets (.ffx) | `references/presets.md` |
 | "What can you do with ...?", techniques | `references/techniques.md` |
 | Audio clean-up, loudness, music, ducking | `references/audio.md` |
 | More formats (9:16, 1:1...) | `references/formats.md` |
-| Before the final render | `references/qc.md` |
+| AE postcheck, before the final render | `references/qc.md` |
 | Layer order, names, colour labels, precomping | `references/organize.md` |
 | Resuming or continuing a project, brand kit, canonical names | `references/project-map.md` |
 | AE op parameters, AE 2026 / Advanced 3D pitfalls | `references/ae-ops.md` |
 | Motion blur | `references/motion-blur.md` |
 | AE speed: heavy parts (3D, glows, mockups), pre-render plates, slow previews/renders | `references/optimization.md` |
 | Chapters, titles, thumbnails, export to other editors | `references/publish.md` |
-| Anything in Premiere Pro (XML, MCP, MOGRT, project/sequence names, styles from .prproj) | `references/premiere.md` |
+| Anything in Premiere Pro (XML, MCP, MOGRT, names, styles from .prproj) | `references/premiere.md` |
 | Downloading a video, Premiere fix, 4K + repair | `references/downloads.md` |
 | Saving to the library / a pack / a whole project | `references/library-save.md`, `references/library-pack.md` |
 | Previews | `references/previews.md` |
@@ -119,9 +126,9 @@ ASCII `PREFIX_PascalName[_01]` inside AE (comps `SCN_ PRE_ LIB_`, layers `TXT_ U
 
 ## Always-on habits
 
-- Before designing, read `learning/house-style.md` and the active style. A design with several parts starts with a numbered plan.
+- A design with several parts starts with a numbered plan and layout tokens (`references/design-plan.md`).
 - Offer once to save a reusable element. After an edit, ask once whether to save what was learned.
 - Tidy layers after an edit (`organize.md`) unless `organize.mode` is off.
-- **AE builds are optimized** while `optimize.mode` is on (default): heavy parts in `HVY_` precomps at `optimize.heavy_fps`, 3D first then 2D moves on its plate, plates rendered only after the user's yes (`references/optimization.md`). Moves go on a null / ADJ_ / Transform effect, never the element's own transform (`motion.transform_rig`).
+- **AE builds are optimized** while `optimize.mode` is on: heavy parts in `HVY_` precomps at `optimize.heavy_fps`, plates only after the user's yes (`references/optimization.md`). Moves go on a null / ADJ_ / Transform effect (`motion.transform_rig`). Library colours are remapped, never overlaid (`references/library-use.md`).
 - **Project map** `_keremkit/` next to the project (`keremkit.py map`): log, map, canonical names, brand kit. Read it by search first when resuming; new elements reuse its brand kit.
 - Something broken on the user's machine → `keremkit.py doctor`. First library use in a session → `previews.py scan --brief`.

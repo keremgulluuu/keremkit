@@ -58,6 +58,10 @@ Typical costs (direct tool calls from the chat):
 
 ## 4. General
 
+- **One feedback round = one session.** Every call re-reads the whole conversation: a 240-call session averaged ~300k context per call, the same work resumed from the map costs ~70-120k. At the end of a round (or when context passes ~150k) write the map/log + session report and tell the user to continue in a new chat with it.
+- **Generated ops never go inline.** A Python generator writes the batch JSON to a file and the model sends it / sees a 5-line summary; pasted 20-45k character batches are re-read by every later call.
+- **One rule for many layers:** an expression, a preset (.ffx) or one rigged layer duplicated N times instead of N explicit per-layer ops.
+- **Measure, don't look:** `qc.py ae-postcheck` numbers instead of contact sheets (14 contact-sheet PNGs in one build cost more than the build's checks).
 - Resume from `_keremkit/log.md` instead of re-reading the project.
 - Search catalogues, known issues and indexes with the tools or grep; open one file, not a folder.
 - Scripts print one line per result; use `--brief` where it exists.

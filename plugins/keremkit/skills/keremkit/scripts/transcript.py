@@ -21,6 +21,9 @@
            those spots into its own wav. Transcribe every wav alone, fill "text"/"words", then:
   retakes  bursts.json [--into repeats.json]
            a burst whose end repeats the start of the next burst is a retake (the later take is kept)
+  wordless W.json --media FILE [--min 0.6] [--wav-dir DIR] [-o wordless.json]
+           speech-level audio that no word covers (a take Whisper left wordless): report it before cutting,
+           transcribe each wav alone. Run it on the source, and on the cut file with that file's words.
   remove   W.json --index A-B [--index C-D] [--reason "..."] --into removals.json
            manual removals by word index range (from `words`) for cutlist.py build --remove
 
@@ -459,6 +462,43 @@ def cmd_bursts(a):
               "'text' and 'words' [{w,s,e} in source seconds = offset + time], then: transcript.py retakes")
 
 
+def cmd_wordless(a):
+    """Speech-level audio that no word covers: a take Whisper skipped, kept wordless (cutting would remove it)."""
+    ws = [w for w in words_of(load(a.words)) if text_of(w) and w.get("start") is not None]
+    spans = sorted((w["start"], w.get("end", w["start"])) for w in ws)
+    bursts, thr = speech_bursts(a.media, spans, a.rel_db)
+    found = []
+    for x, y in bursts:
+        t = x
+        for s, e in spans:
+            if e + a.pad < t or s - a.pad > y:
+                continue
+            if s - a.pad > t and (s - a.pad) - t >= a.min:
+                found.append([round(t, 3), round(s - a.pad, 3)])
+            t = max(t, e + a.pad)
+        if y - t >= a.min:
+            found.append([round(t, 3), round(y, 3)])
+    items = []
+    if a.wav_dir and found:
+        import subprocess
+        os.makedirs(a.wav_dir, exist_ok=True)
+    for k, (s, e) in enumerate(found, 1):
+        it = {"id": k, "start": s, "end": e, "text": None, "words": None}
+        if a.wav_dir:
+            wav = os.path.join(os.path.abspath(a.wav_dir), f"wordless_{k:03d}.wav")
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{max(0, s - 0.1):.3f}", "-to", f"{e + 0.1:.3f}",
+                            "-i", a.media, "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
+            it.update(wav=wav, offset=round(max(0, s - 0.1), 3))
+        items.append(it)
+        print(f"WORDLESS {mmss(s)}-{mmss(e)} {e - s:.2f}s")
+    if a.output:
+        with open(a.output, "w", encoding="utf-8") as f:
+            json.dump({"media": os.path.abspath(a.media), "threshold_db": round(thr, 1), "spans": items}, f,
+                      ensure_ascii=False, indent=1)
+    print(f"OK wordless={len(found)} total={sum(e - s for s, e in found):.1f}s"
+          + (" -> report every span to the user before cutting; transcribe the wavs alone" if found else ""))
+
+
 def _toks(text):
     return [t for t in (fold(x) for x in (text or "").split()) if t]
 
@@ -608,6 +648,14 @@ def main():
     b.add_argument("--rel-db", type=float, default=-10.0)
     b.add_argument("--wav-dir", required=True, help="where the burst wav pieces go")
     b.add_argument("-o", "--output", required=True)
+    wl = sp.add_parser("wordless")
+    wl.add_argument("words")
+    wl.add_argument("--media", required=True)
+    wl.add_argument("--min", type=float, default=0.6, help="shortest wordless speech span reported (s)")
+    wl.add_argument("--pad", type=float, default=0.15, help="room around each word that counts as covered (s)")
+    wl.add_argument("--rel-db", type=float, default=-10.0)
+    wl.add_argument("--wav-dir", help="cut each span into its own wav for re-transcription")
+    wl.add_argument("-o", "--output")
     rt = sp.add_parser("retakes")
     rt.add_argument("manifest")
     rt.add_argument("--into", help="add the hidden retakes to this repeats.json (for cutlist.py build --remove)")
@@ -619,7 +667,7 @@ def main():
     rm.add_argument("--into", required=True, help="removals file (created if missing; repeats.json works)")
     a = ap.parse_args()
     {"words": cmd_words, "review": cmd_review, "fix": cmd_fix, "repeats": cmd_repeats, "accept": cmd_accept,
-     "bursts": cmd_bursts, "retakes": cmd_retakes, "remove": cmd_remove}[a.cmd](a)
+     "bursts": cmd_bursts, "retakes": cmd_retakes, "remove": cmd_remove, "wordless": cmd_wordless}[a.cmd](a)
 
 
 if __name__ == "__main__":

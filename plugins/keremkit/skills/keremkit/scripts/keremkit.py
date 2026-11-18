@@ -36,6 +36,8 @@ bookkeeping on the user's computer and prints only short results.
   style-get SLUG KEY [KEY ...]            print only these dotted keys of styles/SLUG/style.json
   map      init|add|find|name|show PROJECT_DIR ...   the project map in <project>/_keremkit/ (references/project-map.md)
   learning-archive [--file F] [--dry-run] move sections marked "Status: done ..." to <file>.archive.md
+  preflight TASK [--style SLUG]          the binding rules for one task in <= 45 lines (banned files, matching
+                                          custom_rules, prefs, style tokens, what to read, the gate): run it first
 
 All commands except `where`/`init` use the home from the pointer file; pass --home to override.
 """
@@ -49,7 +51,7 @@ import sys
 import unicodedata
 from datetime import date
 
-KIT_VERSION = "2.2.0"
+KIT_VERSION = "2.3.0"
 POINTER = os.path.join(os.path.expanduser("~"), ".keremkit.json")
 DEFAULT_HOME = os.path.join(os.path.expanduser("~"), "Documents", "KeremKit")
 CATALOG_COLS = ["id", "type", "category", "name", "local_name", "summary", "folder", "search"]
@@ -1211,7 +1213,11 @@ def cmd_learning_archive(a):
         print(f"OK done={len(done)} open={len(keep)}" + (" (dry run)" if a.dry_run else ""))
         return
     arch = os.path.splitext(p)[0] + ".archive.md"
-    shutil.copy2(p, p + ".bak")
+    bak, n = f"{p}.bak-{date.today().isoformat()}", 1
+    while os.path.exists(bak):               # never overwrite an earlier backup
+        n += 1
+        bak = f"{p}.bak-{date.today().isoformat()}-{n}"
+    shutil.copy2(p, bak)
     new_file = not os.path.exists(arch)
     with open(arch, "a", encoding="utf-8", newline="\n") as f:
         if new_file:
@@ -1221,7 +1227,127 @@ def cmd_learning_archive(a):
             f.write("\n".join(s).rstrip() + "\n\n")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(head + [x for s in keep for x in s]).rstrip() + "\n")
-    print(f"OK moved={len(done)} open={len(keep)} -> {arch} (backup {os.path.basename(p)}.bak)")
+    print(f"OK moved={len(done)} open={len(keep)} -> {arch} (backup {os.path.basename(bak)})")
+
+
+# ---------------------------------------------------------------- preflight: the binding rules for one task
+RULE_ORDER = ("explicit instruction in this request > the user's hand fixes > the named style > library defaults "
+              "> Claude's choice; a real conflict with no instruction is asked, never resolved silently")
+# custom_rules may start with tags like "[sfx][design] ..."; untagged rules are matched by these words
+TAG_WORDS = {
+    "safety": ("aep", "ae_save", "reduce", "destructive", "save", "backup", "recovery", "sync", "stop ae", "rescue"),
+    "render": ("render", "avi", "lossless", "mov", "mp4", "contact sheet"),
+    "sfx": ("sfx", "sound", "ses ", "whoosh", "riser", "banned", "earshot", "music"),
+    "design": ("design", "colour", "color", "renk", "palette", "stroke", "margin", "spacing", "font", "glass",
+               "library", "style", "reference", "copy"),
+    "motion": ("motion", "animat", "transform", "null", "blur", "keyframe", "ease"),
+    "transcript": ("whisper", "transcri", "subtitle", "altyaz", "word", "caption"),
+    "premiere": ("premiere", "prproj", "xml", "edl", "srt", "bileşen", "bilesen", "sequence"),
+    "download": ("download", "instagram", "youtube", "tiktok", "indir", "cookies"),
+    "kit": ("keremkit", "skill", "technique", "extension"),
+}
+TASKS = {
+    "ae-design": ("safety", "design", "motion", "render"),
+    "ae-build": ("safety", "design", "motion", "render", "sfx"),
+    "sfx": ("sfx", "render"),
+    "edit": ("safety", "transcript", "premiere", "render", "sfx"),
+    "cut": ("transcript", "premiere"),
+    "subtitles": ("transcript", "premiere", "design"),
+    "premiere": ("safety", "premiere", "render"),
+    "download": ("download",),
+    "library": ("safety", "design", "kit"),
+    "kit": ("kit",),
+}
+TASK_READ = {
+    "ae-design": "references/design-plan.md (numbered plan + layout tokens); placing library items: references/library-use.md",
+    "ae-build": "references/design-plan.md; heavy effects/3D: references/optimization.md §1-2; references/ae-ops.md by grep",
+    "sfx": "references/sound-effects.md; candidates only through `sfx.py filter`",
+    "edit": "the style (style-get), references/transcript.md then references/cutting.md",
+    "cut": "references/cutting.md", "subtitles": "references/subtitles.md", "premiere": "references/premiere.md",
+    "download": "references/downloads.md", "library": "references/library-save.md / library-use.md",
+    "kit": "learning/skill-change-requests.md format: references/token-budget.md §5",
+}
+TASK_GATE = {
+    "ae-design": "qc.py ae-postcheck <export.json> [--samples --style --bounds] - no FAIL before 'done'",
+    "ae-build": "qc.py ae-postcheck <export.json> [--samples --style --bounds] - no FAIL before 'done'",
+    "sfx": "sfx.py filter before listening/importing; qc.py ae-postcheck catches leftovers",
+    "edit": "qc.py check <render> only if the user asked for a render; otherwise the review checklist (qc.md)",
+}
+
+
+def rule_tags(rule):
+    tags = set(re.findall(r"\[([a-z-]+)\]", rule[:60].lower()))
+    if tags:
+        return tags
+    low = rule.lower()
+    def hit(w):
+        w = w.strip()
+        # short words must be whole words ("mov" is not "move"); longer ones match as a word start ("animat")
+        return re.search(r"\b" + re.escape(w) + (r"\b" if len(w) <= 4 else ""), low)
+    return {t for t, words in TAG_WORDS.items() if any(hit(w) for w in words)}
+
+
+def cmd_preflight(a):
+    h = need_home(home_dir(a.home))
+    if a.task not in TASKS:
+        sys.exit(f"ERROR: unknown task '{a.task}'; use: {', '.join(TASKS)}")
+    prefs = rjson(prefs_path(h), {}) or {}
+    want = set(TASKS[a.task])
+    out = [f"PREFLIGHT {a.task} (KeremKit {KIT_VERSION}) - this is the checklist for the task; it beats memory",
+           f"ORDER {RULE_ORDER}"]
+    if "sfx" in want or a.task.startswith("ae-"):
+        bl = (prefs.get("sfx") or {}).get("banned_files") or []
+        names = [(b.get("file") or b.get("path")) if isinstance(b, dict) else str(b) for b in bl]
+        out.append("BANNED_SFX " + (", ".join(n for n in names if n) or "none")
+                   + " (never listen, rank or import them; sfx.py filter drops them)")
+    rules = prefs.get("custom_rules") or []
+    picked = [(i, r) for i, r in enumerate(rules, 1) if rule_tags(str(r)) & want]
+    out.append(f"RULES {len(picked)} of {len(rules)} custom_rules apply (full text: pref get custom_rules)")
+    for i, r in picked:
+        r = " ".join(str(r).split())
+        out.append(f"  {i}. {r[:a.width] + ('...' if len(r) > a.width else '')}")
+    pv = []
+    if a.task.startswith("ae-") or a.task == "library":
+        o, m = prefs.get("optimize") or {}, prefs.get("motion") or {}
+        pv.append("optimize " + " ".join(f"{k}={o.get(k)}" for k in ("mode", "heavy_fps", "prerender", "intermediate")))
+        pv.append(f"motion rig={m.get('transform_rig')} blur={m.get('blur')}")
+    s = prefs.get("sfx") or {}
+    if "sfx" in want:
+        pv.append(f"sfx level_db={s.get('level_db')} min_gap_s={s.get('min_gap_s')} max_per_10s={s.get('max_per_10s')}"
+                  + (f" rules={len(s.get('rules') or [])} (pref get sfx.rules)" if s.get("rules") else ""))
+    r = prefs.get("render") or {}
+    pv.append(f"render mode={r.get('mode')} format={r.get('format')} | screenshots="
+              f"{(prefs.get('verification') or {}).get('screenshots')}")
+    out.append("PREFS " + " | ".join(pv))
+    if a.style:
+        st = rjson(os.path.join(h, "styles", a.style, "style.json"))
+        if st is None:
+            out.append(f"STYLE {a.style}: NOT FOUND (keremkit.py search {a.style} --type style)")
+        else:
+            look = st.get("look") or {}
+            pal = look.get("palette")
+            lay = st.get("layout") or look.get("layout") or (st.get("design") or {}).get("layout")
+            oq = st.get("open_questions") or []
+            out.append(f"STYLE {a.style}: palette={json.dumps(pal, ensure_ascii=False)[:200] if pal else 'none'}")
+            out.append("  layout=" + (json.dumps(lay, ensure_ascii=False)[:200] if lay else
+                                      "none -> ask once for base unit/stroke/radius/padding/min gap/edge margin, save in the style"))
+            if oq:
+                out.append(f"  open_questions={len(oq)} -> style is draft; ask before building")
+    elif a.task in ("ae-design", "ae-build", "edit", "subtitles"):
+        out.append("STYLE none given -> which style? (keremkit.py search <name> --type style), then preflight --style SLUG")
+    hs = os.path.join(h, "learning", "house-style.md")
+    if a.task in ("ae-design", "ae-build", "subtitles") and os.path.isfile(hs):
+        with open(hs, encoding="utf-8") as f:
+            lines = [x.strip() for x in f if x.strip() and not x.startswith("#")]
+        out.append("HOUSE_STYLE " + " / ".join(lines[:4])[:400])
+    out.append("READ " + TASK_READ.get(a.task, "-"))
+    if a.task in TASK_GATE:
+        out.append("GATE " + TASK_GATE[a.task])
+    out.append("TOKENS say the estimate now (az/orta/çok); generated ops go to a file, not inline; "
+               "one feedback round = one session (context > ~150k -> handoff + new session)")
+    print("\n".join(out[:a.max]))
+    if len(out) > a.max:
+        print(f"... {len(out) - a.max} more lines (--max)")
 
 
 def main():
@@ -1310,6 +1436,11 @@ def main():
     la = sp.add_parser("learning-archive")
     la.add_argument("--file", help="default learning/skill-change-requests.md")
     la.add_argument("--dry-run", action="store_true")
+    pf = sp.add_parser("preflight")
+    pf.add_argument("task", help=" | ".join(TASKS))
+    pf.add_argument("--style", help="the named style's slug")
+    pf.add_argument("--width", type=int, default=200, help="characters per rule line")
+    pf.add_argument("--max", type=int, default=45, help="max lines")
     a = ap.parse_args()
     if a.cmd == "cat" and a.action == "add" and not all([a.key, a.prefix, a.name]):
         ap.error("cat add needs --key --prefix --name")
@@ -1318,7 +1449,7 @@ def main():
      "validate": cmd_validate, "reindex": cmd_reindex, "summary": cmd_summary, "doctor": cmd_doctor, "pack": cmd_pack,
      "unpack": cmd_unpack, "version": cmd_version, "stat": cmd_stat, "safe-copy": cmd_safe_copy, "save-prep": cmd_save_prep,
      "save-check": cmd_save_check, "add-many": cmd_add_many, "find": cmd_find_all, "style-get": cmd_style_get,
-     "map": cmd_map, "learning-archive": cmd_learning_archive}[a.cmd](a)
+     "map": cmd_map, "learning-archive": cmd_learning_archive, "preflight": cmd_preflight}[a.cmd](a)
 
 
 if __name__ == "__main__":

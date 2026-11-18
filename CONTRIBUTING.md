@@ -32,13 +32,14 @@ Guidelines:
 - **Add a test** for any behaviour change in `scripts/`.
 - **Skill text** (`SKILL.md`, `references/`) should stay lean. `SKILL.md` is read on every task; put detail in the reference file that needs it.
 - **No personal defaults.** Anything that depends on the user goes into preferences and is asked when needed.
+- **A check beats a sentence.** For every new rule ask first: can a tool check or enforce it (`keremkit.py preflight`, `qc.py ae-postcheck`, a filter in the script that picks files)? If yes, build the check; prose rules are read only when someone opens the file. Keep the prose rules that remain short and ordered.
 
 ## Maintainer handoff (every release)
 
 Development of KeremKit passes from one maintainer (or AI agent session) to the next. So that nothing is lost:
 
 1. **Before starting:** read the latest handoff file and the last release reports in the maintainers' private development repository (for this repository: `keremgulluuu/keremkit-dev`, private - ask the owner for access). Its `DEVELOPING.md` holds the development rules; follow them.
-2. **After every release:** write what changed (files, tests, version, open items) as a release report, update the handoff file, and push both to that private repository. Give the same files to the owner.
+2. **After every release:** write what changed (files, tests, version, open items) as a release report, update the handoff file, and push both to that private repository. The owner reads them there; send copies only when the owner asks.
 3. Forks keep their own private development repository the same way.
 
 ## Releasing

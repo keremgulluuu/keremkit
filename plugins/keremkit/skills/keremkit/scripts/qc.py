@@ -6,14 +6,31 @@
          -> one line per issue with its time, then a verdict
   thumbs RENDER [-n 6] -o DIR
          sharp, representative frames spread over the video, saved as JPG for the user
+  ae-postcheck EXPORT.json [--comp NAME] [--samples S.json] [--palette "#hex,..." | --style SLUG]
+         [--bounds B.json --min-gap PX --edge PX --size WxH]
+         measured gate before an AE build is called done (references/qc.md "AE postcheck"):
+         FAIL banned SFX in the project, heavy effects outside HVY_ comps (optimize.mode on);
+         WARN HVY_ comp fps != optimize.heavy_fps, keys on an element's own transform (motion.transform_rig),
+         sampled colours far from the palette, overlaps / gaps below the minimum / too close to the edge.
+         EXPORT = ae_project_export_json(outPath=...). S.json = [{"layer","rgb":[r,g,b] 0-1 or 0-255}],
+         B.json = [{"layer","left","top","width","height"} or {"layer","box":[l,t,r,b]}] at the rest frame.
 """
 import argparse
 import json
+import math
 import os
 import re
 import shutil
 import subprocess
 import sys
+
+HEAVY_FX = re.compile(r"ADBE Glo2|PEDG|Deep ?Glow|CC Force Motion Blur|RSMB|RE:Vision|ReelSmart|ADBE Displacement Map|"
+                      r"ADBE Turbulent Displace|CC Glass|ADBE Fractal Noise|ADBE Echo|Pixel Motion Blur|Keylight|"
+                      r"VIDEOCOPILOT 3DArray|tc Particular|Trapcode|ADBE Camera Lens Blur|Optical Flares|"
+                      r"Saber|S_Glow|Sapphire", re.I)
+RIG_PREFIX = ("NULL_", "CTRL_", "ADJ_", "CAM_", "LGT_", "HVY_", "PLT_")
+OWN_TRANSFORM = {"ADBE Position", "ADBE Position_0", "ADBE Position_1", "ADBE Position_2", "ADBE Scale",
+                 "ADBE Rotate Z", "ADBE Rotate X", "ADBE Rotate Y", "ADBE Orientation", "ADBE Anchor Point"}
 
 
 def run(args):
@@ -86,6 +103,206 @@ def cmd_thumbs(a):
     print(f"OK thumbs={len(paths)} -> {a.output}")
 
 
+# ---------------------------------------------------------------- AE postcheck
+def home_dir(override=None):
+    if override:
+        return override
+    try:
+        with open(os.path.join(os.path.expanduser("~"), ".keremkit.json"), encoding="utf-8") as f:
+            h = json.load(f).get("home")
+        if h:
+            return h
+    except (OSError, ValueError):
+        pass
+    return os.path.join(os.path.expanduser("~"), "Documents", "KeremKit")
+
+
+def rjson(path, default=None):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return default
+
+
+def hex_rgb(h):
+    h = h.strip().lstrip("#")
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", h):
+        return None
+    return [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+
+
+def to_unit(rgb):
+    v = [float(x) for x in rgb[:3]]
+    return [x / 255 for x in v] if max(v) > 1.0 else v
+
+
+def lab(rgb):
+    def lin(c):
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = [lin(c) for c in rgb]
+    x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+    y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+
+    def f(t):
+        return t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+    fx, fy, fz = f(x), f(y), f(z)
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def delta_e(a, b):
+    return math.dist(lab(a), lab(b))
+
+
+def style_palette(home, slug):
+    st = rjson(os.path.join(home, "styles", slug, "style.json"), {}) or {}
+    out = []
+
+    def walk(n):
+        if isinstance(n, dict):
+            for v in n.values():
+                walk(v)
+        elif isinstance(n, list):
+            for v in n:
+                walk(v)
+        elif isinstance(n, str):
+            for h in re.findall(r"#[0-9a-fA-F]{6}\b", n):
+                out.append(h)
+    walk((st.get("look") or {}).get("palette") or st.get("look") or {})
+    return list(dict.fromkeys(out))
+
+
+def box_of(b):
+    if "box" in b:
+        return [float(x) for x in b["box"][:4]]
+    l, t = float(b.get("left", 0)), float(b.get("top", 0))
+    return [l, t, l + float(b.get("width", 0)), t + float(b.get("height", 0))]
+
+
+def cmd_postcheck(a):
+    home = home_dir(a.home)
+    prefs = rjson(os.path.join(home, "settings", "preferences.json"), {}) or {}
+    data = rjson(a.export)
+    if data is None:
+        sys.exit(f"ERROR: cannot read {a.export}")
+    items = data.get("items") or []
+    by_id = {i.get("id"): i for i in items if isinstance(i, dict)}
+    comps = {i["id"]: i for i in items if isinstance(i, dict) and i.get("type") == "CompItem"}
+    fails, warns = [], []
+
+    def children(cid):
+        return {L.get("sourceId") for L in comps[cid].get("layers") or [] if L.get("sourceId") in comps}
+
+    def reach(roots):
+        seen, todo = set(), list(roots)
+        while todo:
+            c = todo.pop()
+            if c in seen:
+                continue
+            seen.add(c)
+            todo += list(children(c))
+        return seen
+
+    scope = set(comps)
+    if a.comp:
+        root = [c for c, v in comps.items() if v.get("name") == a.comp]
+        if not root:
+            sys.exit(f"ERROR: comp '{a.comp}' not found")
+        scope = reach(root)
+    used = {L.get("sourceId") for c in scope for L in comps[c].get("layers") or []}
+
+    # 1. banned SFX
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import sfx  # noqa: E402  (sibling kit tool: banned list)
+    banned = sfx.banned_list(home)
+    for i in items:
+        f = (i or {}).get("file") or (i or {}).get("missingFootagePath")
+        if i.get("type") == "FootageItem" and f and sfx.is_banned(f, banned):
+            fails.append(f"BANNED_SFX {os.path.basename(f)} (item '{i.get('name')}'{', used' if i.get('id') in used else ', unused - remove it'})")
+
+    # 2. heavy effects outside HVY_ comps
+    opt = prefs.get("optimize") or {}
+    hvy = reach([c for c, v in comps.items() if str(v.get("name", "")).startswith("HVY_")])
+    if opt.get("mode", "on") == "on":
+        for c in sorted(scope - hvy):
+            for L in comps[c].get("layers") or []:
+                fx = [g.get("name") or g.get("matchName") for g in ((L.get("effectsGroup") or {}).get("groups") or [])
+                      if HEAVY_FX.search(f"{g.get('matchName', '')} {g.get('name', '')}")]
+                if fx and L.get("enabled", True):
+                    fails.append(f"HEAVY_OUTSIDE_HVY {comps[c].get('name')} / {L.get('name')}: {', '.join(fx)} "
+                                 f"-> HVY_ precomp at {opt.get('heavy_fps', 30)} fps (optimization.md §1-2)")
+    for c in hvy & scope:
+        v = comps[c]
+        if str(v.get("name", "")).startswith("HVY_") and v.get("frameRate") and opt.get("heavy_fps") \
+                and abs(float(v["frameRate"]) - float(opt["heavy_fps"])) > 0.01:
+            warns.append(f"HVY_FPS {v.get('name')} runs at {v['frameRate']} fps, optimize.heavy_fps={opt['heavy_fps']}")
+
+    # 4. keys on an element's own transform
+    if (prefs.get("motion") or {}).get("transform_rig", "parent_null") != "direct":
+        own = []
+        for c in sorted(scope):
+            for L in comps[c].get("layers") or []:
+                n = str(L.get("name", ""))
+                if n.startswith(RIG_PREFIX) or L.get("type") in ("CameraLayer", "LightLayer"):
+                    continue
+                keyed = [p.get("name") for p in ((L.get("transformGroup") or {}).get("properties") or [])
+                         if p.get("matchName") in OWN_TRANSFORM and p.get("keyframes")]
+                if keyed:
+                    own.append(f"{comps[c].get('name')} / {n}: {', '.join(keyed)}")
+        for s in own[:12]:
+            warns.append("OWN_TRANSFORM_KEYS " + s + " -> move to a NULL_/ADJ_/Transform effect")
+        if len(own) > 12:
+            warns.append(f"OWN_TRANSFORM_KEYS ... {len(own) - 12} more layers")
+
+    # 3. sampled colours vs palette
+    if a.samples:
+        pal = [hex_rgb(h) for h in (a.palette.split(",") if a.palette else style_palette(home, a.style) if a.style else [])]
+        pal = [p for p in pal if p]
+        if not pal:
+            warns.append("COLOUR no palette (pass --palette or --style with look.palette) - colours not checked")
+        for s in rjson(a.samples, []) or []:
+            if not s.get("rgb"):
+                continue
+            c = to_unit(s["rgb"])
+            d = min(delta_e(c, p) for p in pal) if pal else 0
+            if pal and d > a.max_de:
+                h = "#%02X%02X%02X" % tuple(round(x * 255) for x in c)
+                warns.append(f"COLOUR {s.get('layer')} measured {h}, nearest palette colour dE={d:.0f} (> {a.max_de:g})")
+
+    # 5. spacing
+    if a.bounds:
+        bx = [(b.get("layer"), box_of(b)) for b in (rjson(a.bounds, []) or [])]
+        for i in range(len(bx)):
+            for j in range(i + 1, len(bx)):
+                (n1, p), (n2, q) = bx[i], bx[j]
+                ox, oy = min(p[2], q[2]) - max(p[0], q[0]), min(p[3], q[3]) - max(p[1], q[1])
+                inside = (p[0] <= q[0] and p[1] <= q[1] and p[2] >= q[2] and p[3] >= q[3]) or \
+                         (q[0] <= p[0] and q[1] <= p[1] and q[2] >= p[2] and q[3] >= p[3])
+                if ox > 0 and oy > 0 and not inside:
+                    warns.append(f"OVERLAP {n1} x {n2} ({ox:.0f}x{oy:.0f} px)")
+                elif a.min_gap and not inside:
+                    gap = max(-ox, -oy)
+                    if 0 <= gap < a.min_gap:
+                        warns.append(f"GAP {n1} - {n2} {gap:.0f} px (< {a.min_gap:g})")
+        if a.edge and a.size:
+            w, h = [float(x) for x in a.size.lower().split("x")]
+            for n, p in bx:
+                m = min(p[0], p[1], w - p[2], h - p[3])
+                if m < a.edge:
+                    warns.append(f"EDGE {n} {m:.0f} px from the frame edge (< {a.edge:g})")
+
+    for tag, lst in (("FAIL", fails), ("WARN", warns)):
+        for x in lst[:a.max_lines]:
+            print(f"{tag} {x}")
+        if len(lst) > a.max_lines:
+            print(f"{tag} ... {len(lst) - a.max_lines} more (--max-lines to see them)")
+    print(f"POSTCHECK {'FAIL' if fails else 'OK'} fail={len(fails)} warn={len(warns)} comps={len(scope)}"
+          + ("" if fails else " (OK = nothing measured failed; WARN lines still go to the user)"))
+    if fails:
+        sys.exit(1)
+
+
 def main():
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -103,8 +320,21 @@ def main():
     t.add_argument("render")
     t.add_argument("-n", type=int, default=6)
     t.add_argument("-o", "--output", required=True)
+    pc = sp.add_parser("ae-postcheck")
+    pc.add_argument("export")
+    pc.add_argument("--comp", help="check this comp and everything nested in it (default: all comps)")
+    pc.add_argument("--samples")
+    pc.add_argument("--palette")
+    pc.add_argument("--style")
+    pc.add_argument("--max-de", type=float, default=12.0, help="colour distance that counts as off-palette")
+    pc.add_argument("--bounds")
+    pc.add_argument("--min-gap", type=float, default=0.0)
+    pc.add_argument("--edge", type=float, default=0.0)
+    pc.add_argument("--size", help="comp size WxH for --edge")
+    pc.add_argument("--max-lines", type=int, default=15, help="lines printed per FAIL/WARN list")
+    pc.add_argument("--home")
     a = ap.parse_args()
-    {"check": cmd_check, "thumbs": cmd_thumbs}[a.cmd](a)
+    {"check": cmd_check, "thumbs": cmd_thumbs, "ae-postcheck": cmd_postcheck}[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -5,10 +5,15 @@
   make  [NAME ...] -o DIR [--variants 3]
                                    write WAV files (48 kHz mono), e.g. whoosh_1.wav, impact_1.wav
                                    NAME defaults to all; variants differ slightly in pitch/length
+  banned                           the user's banned SFX files (preferences sfx.banned_files)
+  filter PATH [PATH ...]           drop banned files from candidates BEFORE listening, ranking or importing:
+                                   PATH = a file or a folder (searched for audio); prints the allowed files
+                                   and "SKIP (banned) ..." lines. Every SFX choice goes through this gate.
 
 Use them when the user has no SFX folder, or as placeholders; real libraries sound richer.
 """
 import argparse
+import json
 import os
 import re
 import shutil
@@ -36,6 +41,47 @@ SOUNDS = {
     "typing": (1.2, "anoisesrc=d={d}:c=white:a=0.6,highpass=f=1800,"
                     "volume='if(lt(mod(t,0.085*{v}),0.012),1,0)':eval=frame"),
 }
+
+
+AUDIO_EXT = (".wav", ".mp3", ".aif", ".aiff", ".flac", ".ogg", ".m4a", ".aac")
+
+
+def home_dir(override=None):
+    if override:
+        return override
+    try:
+        with open(os.path.join(os.path.expanduser("~"), ".keremkit.json"), encoding="utf-8") as f:
+            h = json.load(f).get("home")
+        if h:
+            return h
+    except (OSError, ValueError):
+        pass
+    return os.path.join(os.path.expanduser("~"), "Documents", "KeremKit")
+
+
+def banned_list(home):
+    """[(name_key, path_key, why)] from preferences sfx.banned_files (strings or {file, path, why})."""
+    try:
+        with open(os.path.join(home, "settings", "preferences.json"), encoding="utf-8") as f:
+            prefs = json.load(f)
+    except (OSError, ValueError):
+        return []
+    out = []
+    for b in ((prefs.get("sfx") or {}).get("banned_files") or []):
+        if isinstance(b, str):
+            b = {"file": os.path.basename(b), "path": b if os.sep in b or "/" in b else ""}
+        name = (b.get("file") or os.path.basename(b.get("path") or "")).strip().lower()
+        path = os.path.normcase(os.path.normpath(b["path"])) if b.get("path") else ""
+        if name or path:
+            out.append((name, path, b.get("why") or ""))
+    return out
+
+
+def is_banned(path, banned):
+    """Banned when the file name matches (any folder) or the full path matches."""
+    base = os.path.basename(path).strip().lower()
+    full = os.path.normcase(os.path.normpath(os.path.abspath(path)))
+    return next((b for b in banned if (b[0] and b[0] == base) or (b[1] and b[1] == full)), None)
 
 
 def render(name, out, variant):
@@ -76,7 +122,36 @@ def main():
     m.add_argument("names", nargs="*")
     m.add_argument("-o", "--output", required=True)
     m.add_argument("--variants", type=int, default=1)
+    bn = sp.add_parser("banned")
+    bn.add_argument("--home")
+    fl = sp.add_parser("filter")
+    fl.add_argument("paths", nargs="+")
+    fl.add_argument("--home")
     a = ap.parse_args()
+    if a.cmd == "banned":
+        bl = banned_list(home_dir(a.home))
+        for name, path, why in bl:
+            print(f"BANNED {name or path}" + (f"  ({why[:120]})" if why else ""))
+        print(f"OK banned={len(bl)}")
+        return
+    if a.cmd == "filter":
+        bl = banned_list(home_dir(a.home))
+        files = []
+        for p in a.paths:
+            if os.path.isdir(p):
+                for root, _, names in os.walk(p):
+                    files += [os.path.join(root, n) for n in sorted(names) if n.lower().endswith(AUDIO_EXT)]
+            else:
+                files.append(p)
+        kept = 0
+        for f in files:
+            if is_banned(f, bl):
+                print(f"SKIP (banned) {f}")
+            else:
+                print(f)
+                kept += 1
+        print(f"OK allowed={kept} skipped={len(files) - kept}")
+        return
     if a.cmd == "list":
         for n, (d, _) in SOUNDS.items():
             print(f"{n}\t{d}s")

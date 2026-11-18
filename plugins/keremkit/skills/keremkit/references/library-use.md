@@ -42,6 +42,13 @@ Batch B (needs that id):
 
 A parameter whose `target.comp` is a **nested** comp: that nested comp is shared by every copy. For a single use, set it directly. For a second copy with different values, duplicate the nested comp too and swap it into the copy with `layer.replace_source` before setting values.
 
+**Colour: remap, never overlay.** When the request, the theme or the style gives colours that differ from the item's:
+1. List the item's colours with their role (base, mid, accent, dots, lights, text) from `meta.params` / `LOGIC.md` / `digest.py --deep --params` - before placing.
+2. Map every role to the requested colour (or the style's `look.palette` role). The instruction changes the source palette everywhere, not only on layers you add; adding red lights over a blue background is not a recolor.
+3. A rigged item (`CTRL_` layer, `params.json`): set every control in ONE batch. Not rigged: one batch over the listed colour properties.
+4. Check with `comp.sample` after the whole effect chain and `qc.py ae-postcheck --samples`.
+Order when instructions meet: explicit instruction in this request > the user's hand fixes > the named style > library defaults > Claude's choice. "Copy it exactly" copies form and motion; a colour given in the same request still wins. A real conflict with no instruction is asked.
+
 If the user asks for a value that is not a defined parameter, change the property anyway, then ask in one line whether to make it a permanent parameter.
 
 Size mismatch (e.g. 16:9 item into a 9:16 comp): scale to fit the safe area and mention it.

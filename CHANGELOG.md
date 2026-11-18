@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-11-19
+
+Rules as checks instead of text: a postmortem of a real build showed that rules written only as prose were skipped (banned sound used, heavy effects at 60 fps, a colour request overlaid instead of applied, spacing never measured, ~131 M cache-read tokens for a 17 s comp).
+
+### Added
+- `keremkit.py preflight TASK [--style SLUG]`: the binding rules for one task in at most 45 lines - instruction order, banned SFX files, the `custom_rules` that apply (by `[tag]` or by words), optimize/motion/render/SFX preferences, the style's palette and layout tokens (and open questions), what to read, the gate. SKILL.md: the first tool call of every build, edit or SFX job.
+- `qc.py ae-postcheck EXPORT.json`: measured gate before an AE build is called done. FAIL: banned SFX in the project, heavy effects (glows, CC Force Motion Blur, RSMB, CC Glass, Displacement, Fractal Noise, Particular...) outside `HVY_` comps while `optimize.mode` is on. WARN: `HVY_` frame rate, keys on an element's own transform, sampled colours far from the palette (CIE dE), overlaps, gaps and edge margins from `layer.bounds`.
+- `sfx.py banned` and `sfx.py filter PATH...`: banned files are dropped before any listening, ranking or import.
+- `transcript.py wordless`: speech-level audio that no word covers (a take Whisper skipped), with wav pieces for re-transcription.
+- Style section `layout` (base unit, stroke, radius, padding, min gap, edge margin) and design-plan step 0b (layout tokens before the first element).
+- Library: colour remap instead of overlay (`library-use.md`), optional `CTRL_` colour/size rig with `params.json` for new items (`library-save.md`).
+- Token rules: one feedback round = one session, generated ops to a file, one expression/preset for many layers, postcheck numbers instead of contact sheets.
+
+### Changed
+- `motion-blur.md`: CC Force Motion Blur / RSMB on several layers points to `HVY_` precomps (`optimization.md` §1-2).
+- `sound-effects.md`: SFX are chosen only from `sfx.py filter` output; the earshot MCP gets candidates from that list.
+- Maintainer handoff: the reports live in the private development repository; no local copies unless the owner asks.
+
+### Fixed
+- `keremkit.py learning-archive` overwrote its single `.bak` on every run; backups are now dated and never overwritten.
+
 ## [2.2.0] - 2026-11-18
 
 ### Added

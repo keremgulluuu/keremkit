@@ -9,6 +9,13 @@ Preference `design.plan`: `big` (default - a plan when the request has 2+ parts 
 - `keremkit.py find <words>` once for the whole request: library, techniques, downloaded assets, extensions and past sessions in one call. A technique or recipe that exists is used, never rebuilt from scratch.
 - Inside an existing project: `keremkit.py map find <project> <words>` in its `_keremkit/brandkit.md` and map (`project-map.md`) - new parts reuse the project's colours, fonts, motion and effect values and its canonical names.
 
+## 0b. Layout tokens (before the first element)
+
+A design with several parts needs one spacing system, not values picked per element. Take from the style's `layout` (or the project brandkit): base unit (e.g. 8 px), stroke at 100 % scale, corner radius, inner padding, minimum gap between elements, edge margin. `keremkit.py preflight ae-design --style SLUG` prints them. None in the style: ask once in the plan's question (★ a proposal derived from the comp size), then save them in the style's `layout`.
+- Set strokes in effective pixels (stroke × layer scale) so siblings match.
+- Every size and gap is a multiple of the base unit.
+- After the build, `qc.py ae-postcheck --bounds ... --min-gap <gap> --edge <margin>` measures it.
+
 ## 1. Split the request into parts
 
 From the request, the active style and `learning/house-style.md`: 2-8 parts, each a few words ("intro: animated title", "counter: gold subscriber count", "background: purple moving gradient", "transition: whoosh slide"). Parts follow the order they appear in the video.

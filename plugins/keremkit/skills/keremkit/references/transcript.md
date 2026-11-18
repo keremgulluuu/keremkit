@@ -8,6 +8,7 @@ Every spoken recording goes through the same pipeline before it is cut or subtit
 3 correct     transcript.py fix              -> sure fixes applied, unsure ones asked
 4 repeats     transcript.py repeats          -> retakes / restarts / repeats / fillers, sure ones applied
 4b hidden     transcript.py bursts + retakes -> takes Whisper merged into one stretched word (always run)
+4c wordless   transcript.py wordless          -> speech-level audio with no words (a take Whisper skipped)
 5 cut         cutlist.py build --remove      -> audio-based silence cut + repeats removed
 6 render      cutlist.py render --run
 7 subtitles   subtitles.py build (from the corrected words, mapped through the cut list)
@@ -112,6 +113,12 @@ A normal Whisper model can write several takes of a sentence **once** and stretc
 3. `transcript.py retakes _keremkit/bursts.json --into repeats.json` - a burst whose end repeats the start of the next take (one burst may sit in between, e.g. a number) is removed up to the next take; tiny bursts and known Whisper hallucinations ("Altyazı M.K.") are ignored. List the found retakes to the user like the other repeats.
 
 On IMG_3810 this found exactly the known retakes (4 takes at 0:29, "Arkadaşlar her..." at 0:52) plus the intro said twice, and left "Tavsiye etmem" alone. With a verbatim model (above) the takes are usually already in the text and `repeats` finds them; run the check anyway - it is cheap when nothing is suspect.
+
+## 4c. Wordless speech (every edit, before cutting)
+
+`bursts` cannot see a take Whisper skipped completely (no stretched word, just no words). The silence cut would remove such a stretch as "no speech".
+
+`transcript.py wordless cam.fixed.json --media cam_16k.wav --wav-dir _keremkit/wordless -o _keremkit/wordless.json` lists every `WORDLESS` span (speech-level audio, ≥ 0.6 s, not covered by a word ± 0.15 s). Report each span to the user before cutting (time + length); transcribe each wav on its own like the bursts and add the words, or mark it as noise when the user says so. Run it again on the cut file with that file's words: it catches a take that the cut left in without words.
 
 ## 5. Cut
 

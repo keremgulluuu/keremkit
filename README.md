@@ -36,6 +36,7 @@ It is built around one constraint: **every token counts**. Heavy work happens in
 - **Projects that remember across chats.** A small `_keremkit/` folder next to each project keeps a searchable map of comps and open items, one canonical name per element and the project's brand kit (colours, fonts, motion and effect values), so the next chat continues in the same look. Library items carry a `LOGIC.md` so their effect can be rebuilt on any other element. After a bulk change you get a list of exact times to check.
 - **Preferences that stick.** Nothing is assumed. Each choice is asked once, when it matters, and remembered.
 - **Safety nets.** Numbered checkpoints before risky operations, standard layer naming, safe-area checks, a log of solved problems so the same error never costs time twice.
+- **Checks, not just rules.** Every build starts with a short preflight (the rules that apply to this task, banned sound files, your style's colours and spacing) and an After Effects build is called done only after a measured postcheck: no banned sounds, heavy effects in their fast precomps, colours on your palette, nothing overlapping or too close to the edge.
 
 ## How it works
 

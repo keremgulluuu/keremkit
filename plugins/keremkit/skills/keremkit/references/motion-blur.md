@@ -50,6 +50,7 @@ Say in one line which values you use when the style has none, and save what the 
 ## 4. Building it
 
 1. Read `motion.blur` and the style. `off` → skip. `ask` / null → one question with what it changes (render time vs. smoother motion) and a ★ recommendation.
+   CC Force Motion Blur, RSMB or many samples on several layers is heavy: those layers (counters, fast text) go into an `HVY_` precomp at `optimize.heavy_fps` with Preserve frame rate first (`optimization.md` §1-2); `qc.py ae-postcheck` fails otherwise.
 2. One batch per comp: comp switch + shutter settings, layer switches for the animated layers (from the keyframe list you just built - no extra read), CC Force Motion Blur where the table says so.
 3. Verify with numbers: `property.get` of the comp settings; one `ae_render_frame` with `analyze` on a fast frame only when the user asks to look.
 

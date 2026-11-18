@@ -27,14 +27,14 @@ Where a sound goes and how it lines up (its start, its loudest point, a fixed of
 
 1. Collect the events from the timeline plan / what was placed (transition times, UI in-points, highlight times from `subs.json`).
 2. Apply the rules, then the limits (drop the weakest when too dense; prefer structural events - transitions, interstitials - over decorative ones).
-3. Find files: list the SFX folder once per session (names only) and match by stem. No folder, or a sound is missing: offer to synthesise basic ones - `sfx.py make whoosh impact pop tick click glitch flash riser typing -o <project>/_keremkit/sfx [--variants 3]` (licence-free, every file peaks at -3 dBFS, so set levels in AE). Never invent a file that does not exist.
+3. Find files: `sfx.py filter <SFX folder or files>` once per session - it lists the allowed files and drops the user's banned ones (`sfx.banned_files`, printed as `SKIP (banned)`); match by stem in that list only. A banned file is never listened to, ranked or imported, not even by a direct path. No folder, or a sound is missing: offer to synthesise basic ones - `sfx.py make whoosh impact pop tick click glitch flash riser typing -o <project>/_keremkit/sfx [--variants 3]` (licence-free, every file peaks at -3 dBFS, so set levels in AE). Never invent a file that does not exist.
 4. AE, one batch: `project.import_file` each needed file once (put them in an `04_SES/SFX` folder), `layer.create_footage` per event named `SFX_<Event>_<nn>`, `layer.set_timing` (start = event time + `offset_s`), Audio Levels via `property.set` (`level_db`).
-5. Verify with `comp.info` (count, times). Report one line: how many SFX, which kinds.
+5. Verify with `comp.info` (count, times); `qc.py ae-postcheck` fails on any banned file left in the project. Report one line: how many SFX, which kinds.
 
 Many SFX (50+): do the timing and levels locally (numpy + ffmpeg on the event list), then one generated op list; never write the ops twice (once in Python output, once pasted). Put them in one `AUD_SFX` precomp.
 
 ## Optional: the earshot MCP ("ears")
 
-When the session has the `earshot` MCP, Claude can judge sounds it cannot hear: `rank` many candidate files → `find` the best moment in the winner → `measure` (LUFS, true peak, noise floor) or `timeline` on a rendered mix to check sync with cuts. Use it for choosing between files and for checking masking under speech; it is not required - without it, the local ffmpeg/numpy path above works. `llm_critique` uploads audio: only with the user's explicit consent.
+When the session has the `earshot` MCP, Claude can judge sounds it cannot hear: `rank` many candidate files → `find` the best moment in the winner → `measure` (LUFS, true peak, noise floor) or `timeline` on a rendered mix to check sync with cuts. Candidates given to `rank` / `describe` come from the `sfx.py filter` list, never from a path typed by hand. Use it for choosing between files and for checking masking under speech; it is not required - without it, the local ffmpeg/numpy path above works. `llm_critique` uploads audio: only with the user's explicit consent.
 
 The first time an edit could use SFX and `sfx.enabled` is null, ask once: "Should edits use sound effects?" - if yes and there are no rules yet, propose a minimal set (whoosh on transitions, soft click on UI entrances) and save what the user accepts.
