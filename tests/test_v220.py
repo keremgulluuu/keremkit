@@ -124,3 +124,16 @@ def test_videoref_extracts_in_chunks(tmp_path, monkeypatch):
     picks = list(range(0, 300, 3))                       # 100 frames
     got = videoref.extract_thumbs("v.mp4", picks, 30, 160, 90, str(tmp_path))
     assert len(got) == 100 and len(calls) == 3 and max(len(c) for c in calls) <= videoref.CHUNK
+
+
+def test_learning_archive_keeps_template_and_prose(kk):
+    p = kk / "learning" / "skill-change-requests.md"
+    p.write_text("# Skill change requests\n\nFormat:\n\n```\n## <short title> (YYYY-MM-DD)\nStatus: open\n```\n\n"
+                 "The maintainer sets `Status: done X.Y.Z` when it ships.\n\n"
+                 "## Fixed thing (2026-11-01)\nStatus: done 2.2.0\n- x\n\n## Open thing (2026-11-02)\nStatus: open\n- y\n",
+                 encoding="utf-8")
+    out = k(kk, "learning-archive").stdout
+    assert "moved=1 open=1" in out
+    text = p.read_text(encoding="utf-8")
+    assert "## <short title>" in text and "sets `Status: done X.Y.Z`" in text and "Open thing" in text
+    assert "Fixed thing" not in text

@@ -1179,7 +1179,7 @@ def cmd_map(a):
 
 
 # ---------------------------------------------------------------- learning archive
-DONE_RX = re.compile(r"status\W{0,4}\s*done", re.I)
+DONE_RX = re.compile(r"^\s*[-*]?\s*\**status\W{0,4}\s*done", re.I)   # a Status line, not prose about it
 
 
 def cmd_learning_archive(a):
@@ -1192,9 +1192,11 @@ def cmd_learning_archive(a):
         sys.exit(f"ERROR: {p} not found")
     with open(p, encoding="utf-8") as f:
         lines = f.read().splitlines()
-    head, sections, cur = [], [], None
+    head, sections, cur, fence = [], [], None, False
     for ln in lines:
-        if ln.startswith("## "):
+        if ln.lstrip().startswith("```"):
+            fence = not fence            # a "## " line inside a code block (the format template) is not a section
+        if ln.startswith("## ") and not fence:
             cur = [ln]
             sections.append(cur)
         elif cur is None:

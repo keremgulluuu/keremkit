@@ -20,6 +20,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 - `cutlist.py restore` crashed in its final print when the restored range had no output time yet (the edit was saved, the exit code was 1).
 - `videoref.py`: frame extraction failed on Windows for long, busy videos (hundreds of `eq()` terms); frames are now taken in chunks of 40.
+- `keremkit.py learning-archive`: a `## ` line inside a code block (the format template) and prose mentioning `Status: done` no longer count as sections to archive.
 - `transcript.py fix`: merging words by index (`"new": ""` for the following words) kept only the first word's end time; the merged word now spans to the last one.
 
 ## [2.1.0] - 2026-11-13
