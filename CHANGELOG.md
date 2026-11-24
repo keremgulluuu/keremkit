@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.5.0] - 2026-11-24
+
+Preview before building: a multi-scene AE design can be shown to the user as a cheap HTML storyboard first, instead of being built blind.
+
+### Added
+- `storyboard.py`: `new` (scene-list skeleton with comp size, fps, palette, fonts and layout tokens from the style / preferences), `check` (fields, timing and a fixed vocabulary; ERR / WARN lines), `build` (one self-contained, offline HTML player: play / pause, scrub, scene list, loop a scene or a transition, safe areas, grid, layer names; `--lang en|tr`), `vocab` (every allowed value in 5 lines). Layer types text, box (incl. glass), circle, line, image, counter, subject, footage; 15 in/out animations, 10 scene transitions centred on the cut, AE-style easings or bezier values, free keys on x / y / scale / rot / opacity.
+- `references/storyboard.md`: where the files live, the format, what the preview does not show, and how the approved `scenes.json` becomes the build plan.
+- Preference `design.preview` (`always` / `ask` / `off`, null = ask once); `design-plan.md` §4b; `preflight ae-design` prints a `STORYBOARD` line unless it is `off`.
+
+### Changed
+- SKILL.md: token rules 3-4 point to `token-budget.md` §2-3 (unchanged content there) to make room; new token rule 4 (preview before building) and a "What to read when" row (12 019 bytes).
+
 ## [2.4.0] - 2026-11-24
 
 The owner's golden rules become checks: rules repeated many times in prose (motion rig, no needless nesting, colour labels, the request read first) were still broken in real builds.

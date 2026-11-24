@@ -61,6 +61,7 @@ A short question box (wrap-up, AskUserQuestion) gets this explanation in the mes
 | `style_versioning.mode` | first time a style changes | "When a style changes, should I keep the old version? Every change / Only big changes / Only certain kinds (e.g. colors) / Never" |
 | `design_import.preview` | first time a look is copied from an image | see `design-import.md` (HTML preview question) |
 | `library.preview_repair` | broken previews found by `previews.py scan` | see `previews.md` -> Repairing old previews (`never` = don't ask again) |
+| `design.preview` | after the first multi-scene plan | see `storyboard.md` (Always / Ask each time / Never -> `always` / `ask` / `off`) |
 | `design.plan` | default `big` - never asked; changed when the user says so ("don't ask, just build" -> `off`; "always show me the plan" -> `always`) | `design-plan.md` |
 | `logos.confirm` | default `ask`; `off` when the user says logos may be added without asking | `assets.md` -> Logos |
 | `library.ask_parts` | default `ask`; `always` / `never` when the user says so | `library-save.md` -> 1b |

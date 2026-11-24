@@ -58,9 +58,13 @@ In the user's language, one line per part, Claude's recommendation first:
 - One question per part at most; no extra questions after the plan.
 - "Sen seç" / "you decide" -> take the recommendation.
 
+## 4b. Storyboard preview (optional)
+
+Plan answered, 2+ scenes or a transition, `design.preview` not `off` (null -> ask once): write the scenes as `scenes.json` and show the HTML player before any AE call (`storyboard.md`). The approved scene list is then the build plan.
+
 ## 5. Build
 
-Follow the answers in plan order: library parts with `library-use.md`, new parts with the usual design rules. If something turns out impossible or much more expensive than said, stop and say so in one line before continuing. Afterwards, offer once to save the new parts to the library (`library-save.md`).
+Follow the answers in plan order (and the approved `scenes.json`, when there is one): library parts with `library-use.md`, new parts with the usual design rules. If something turns out impossible or much more expensive than said, stop and say so in one line before continuing. Afterwards, offer once to save the new parts to the library (`library-save.md`).
 
 ## Unattended or "just do it"
 

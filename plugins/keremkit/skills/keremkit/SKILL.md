@@ -23,8 +23,8 @@ Folders: settings/ (preferences.json, null = never asked), library/ (CATALOG.tsv
 
 - Find it with `python <this skill's folder>/scripts/keremkit.py where`; then use `<home>/tools/` ("tools/x.py" below). `NOT_SET_UP` or first request: `references/setup.md`.
 - **Remember the locations:** with persistent memory, save the output of `keremkit.py where --all` once as ONE memory "KeremKit locations"; update that memory when a location changes, never add a second. Later sessions confirm it with a plain `where`.
-- **Tools version:** once per session run `keremkit.py version` (this skill is `KeremKit 2.4.0`). If it differs, say so in one line; update the tools only when the user asks.
-- **Tools:** keremkit.py, transcript.py, cutlist.py, subtitles.py, editplan.py, audio.py, sfx.py, qc.py, techniques.py, tokens.py, presets.py, videoref.py, previews.py, assets.py, digest.py, prproj.py, download.py, prbatch.py. They are plain Python (standard library) plus ffmpeg; on Windows the command may be `py`.
+- **Tools version:** once per session run `keremkit.py version` (this skill is `KeremKit 2.5.0`). If it differs, say so in one line; update the tools only when the user asks.
+- **Tools:** keremkit.py, transcript.py, cutlist.py, subtitles.py, editplan.py, audio.py, sfx.py, qc.py, techniques.py, tokens.py, presets.py, videoref.py, previews.py, storyboard.py, assets.py, digest.py, prproj.py, download.py, prbatch.py. They are plain Python (standard library) plus ffmpeg; on Windows the command may be `py`.
 
 ## No edit templates - the user's styles decide
 
@@ -53,8 +53,8 @@ Never edit, repackage or re-version this skill or `KeremKit/tools/`. Techniques 
 
 1. **Estimate first.** Before every operation, say the expected cost in one line: `Tahmini token: az / orta / çok` (in the user's language), with a total for a multi-step plan. Classes and typical costs: `references/token-budget.md`.
 2. **No screenshots by default.** Verify with numbers (`references/verification.md`); previews and contact sheets are for the user.
-3. **After Effects:** `ae_context` once; op names and pitfalls from `references/ae-ops.md` (grep); many ops in one `batch.run` ending with `layer.bounds` / `comp.sample`, not big `comp.info` / `layer.info`; exports via `digest.py`; `ae_catalog` once per category.
-4. **Premiere:** more than ~5 calls → a `prbatch.py` plan; `expected_project_path` on every write; writes one at a time; narrow reads.
+3. **AE / Premiere the cheap way** (`references/token-budget.md` §2-3): AE ops in one `batch.run` (names: grep `ae-ops.md`); Premiere over ~5 calls → `prbatch.py`, writes one at a time.
+4. **Preview before building:** a multi-scene design is shown as a storyboard first (`references/storyboard.md`, `design.preview`).
 5. **Heavy work runs locally** (Whisper, transcript.py, cutlist.py, subtitles.py, ffmpeg). Read their short results, never media or raw JSON.
 6. **Search, don't read:** `keremkit.py find <words>` before designing, downloading or analysing; one reference at a time; resume from the project map (`references/project-map.md`).
 6b. **One feedback round = one session;** generated ops go to a file, never inline (`references/token-budget.md` §4).
@@ -94,6 +94,7 @@ ASCII `PREFIX_PascalName[_01]` inside AE (comps `SCN_ PRE_ LIB_`, layers `TXT_ U
 | Subtitles; sound effects; audio clean-up, music | `references/subtitles.md`; `references/sound-effects.md`; `references/audio.md` |
 | Free elements (photo, video, vector/.ai, icon, logo, 3D, Lottie, font, sound) | `references/assets.md` |
 | A design with several parts; copying a look | `references/design-plan.md`; `references/design-import.md` |
+| Scene / transition preview before building | `references/storyboard.md` |
 | Effect presets (.ffx); techniques, "what can you do with ...?" | `references/presets.md`; `references/techniques.md` |
 | More formats (9:16, 1:1...); chapters, titles, export | `references/formats.md`; `references/publish.md` |
 | AE postcheck, before the final render | `references/qc.md` |

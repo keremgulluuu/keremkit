@@ -53,7 +53,7 @@ import sys
 import unicodedata
 from datetime import date
 
-KIT_VERSION = "2.4.0"
+KIT_VERSION = "2.5.0"
 POINTER = os.path.join(os.path.expanduser("~"), ".keremkit.json")
 DEFAULT_HOME = os.path.join(os.path.expanduser("~"), "Documents", "KeremKit")
 CATALOG_COLS = ["id", "type", "category", "name", "local_name", "summary", "folder", "search"]
@@ -135,7 +135,7 @@ DEFAULT_PREFS = {
     "design_import": {"preview": None},
     "library": {"preview_repair": None, "ask_parts": "ask"},   # ask_parts: ask | always | never
     "presets": {"root": "<User Presets>/KeremKit", "save_method": None},   # save_method: user | screen | ask
-    "design": {"plan": "big"},
+    "design": {"plan": "big", "preview": None},   # preview: always | ask | off - storyboard before AE (storyboard.md)
     "logos": {"confirm": "ask"},            # ask | off - add logos of named brands without asking
     "assets": {"allow_attribution": False},  # also list free items that need a credit (CC BY)
     "download": {
@@ -307,7 +307,7 @@ def cmd_init(a):
 
 
 TOOLS = ("keremkit.py", "transcript.py", "cutlist.py", "subtitles.py", "editplan.py", "audio.py", "sfx.py", "qc.py",
-         "techniques.py", "tokens.py", "presets.py", "videoref.py", "previews.py", "assets.py", "digest.py",
+         "techniques.py", "tokens.py", "presets.py", "videoref.py", "previews.py", "storyboard.py", "assets.py", "digest.py",
          "prproj.py", "download.py", "prbatch.py", "techniques.json")
 
 LEARNING_FILES = {
@@ -1389,6 +1389,11 @@ def cmd_preflight(a):
     r = prefs.get("render") or {}
     pv.append(f"render mode={r.get('mode')} format={r.get('format')} | screenshots="
               f"{(prefs.get('verification') or {}).get('screenshots')}")
+    if a.task == "ae-design":
+        dp = (prefs.get("design") or {}).get("preview")
+        if dp != "off":
+            out.append(f"STORYBOARD design.preview={dp} -> after the plan, before any AE call: storyboard.py new/build "
+                       "(references/storyboard.md)" + ("; null = ask once" if dp is None else ""))
     out.append("PREFS " + " | ".join(pv))
     if a.style:
         st = rjson(os.path.join(h, "styles", a.style, "style.json"))

@@ -38,6 +38,7 @@ TOOLS = (
     "presets.py",
     "videoref.py",
     "previews.py",
+    "storyboard.py",
     "assets.py",
     "digest.py",
     "prproj.py",

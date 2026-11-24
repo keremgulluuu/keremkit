@@ -161,7 +161,7 @@ plugins/keremkit/
     SKILL.md                           what Claude reads first
     references/                        loaded only when a task needs them
     scripts/                           transcript, cutlist, subtitles, editplan, audio, sfx, qc,
-                                       techniques, tokens, presets, videoref, previews, assets, keremkit, digest,
+                                       techniques, tokens, presets, videoref, previews, storyboard, assets, keremkit, digest,
                                        prproj, download, prbatch
     assets/                            example style, tokens and library metadata
 docs/                                  user documentation
