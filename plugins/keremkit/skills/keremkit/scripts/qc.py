@@ -7,11 +7,15 @@
   thumbs RENDER [-n 6] -o DIR
          sharp, representative frames spread over the video, saved as JPG for the user
   ae-postcheck EXPORT.json [--comp NAME] [--samples S.json] [--palette "#hex,..." | --style SLUG]
-         [--bounds B.json --min-gap PX --edge PX --size WxH]
+         [--bounds B.json --min-gap PX --edge PX --size WxH] [--subject SUBJ.json]
+         [--max-depth 2] [--allow-nested LIB_]
          measured gate before an AE build is called done (references/qc.md "AE postcheck"):
-         FAIL banned SFX in the project, heavy effects outside HVY_ comps (optimize.mode on);
-         WARN HVY_ comp fps != optimize.heavy_fps, keys on an element's own transform (motion.transform_rig),
-         sampled colours far from the palette, overlaps / gaps below the minimum / too close to the edge.
+         FAIL banned SFX in the project, heavy effects outside HVY_ comps (optimize.mode on),
+              keys on an element's own transform incl. opacity (only NULL_/CTRL_/ADJ_/CAM_/LGT_ may be keyed),
+              layer colour label None, comp nesting deeper than --max-depth (insides of LIB_ comps are free);
+         WARN HVY_ comp fps != optimize.heavy_fps, label != organize.labels for its prefix, parent that is not
+              a NULL_/CTRL_ rig, sampled colours far from the palette, overlaps / gaps below the minimum /
+              too close to the edge, an element covering the subject box (SUBJ.json = [{"t","box":[l,t,r,b]}]).
          EXPORT = ae_project_export_json(outPath=...). S.json = [{"layer","rgb":[r,g,b] 0-1 or 0-255}],
          B.json = [{"layer","left","top","width","height"} or {"layer","box":[l,t,r,b]}] at the rest frame.
 """
@@ -28,9 +32,10 @@ HEAVY_FX = re.compile(r"ADBE Glo2|PEDG|Deep ?Glow|CC Force Motion Blur|RSMB|RE:V
                       r"ADBE Turbulent Displace|CC Glass|ADBE Fractal Noise|ADBE Echo|Pixel Motion Blur|Keylight|"
                       r"VIDEOCOPILOT 3DArray|tc Particular|Trapcode|ADBE Camera Lens Blur|Optical Flares|"
                       r"Saber|S_Glow|Sapphire", re.I)
-RIG_PREFIX = ("NULL_", "CTRL_", "ADJ_", "CAM_", "LGT_", "HVY_", "PLT_")
+RIG_PREFIX = ("NULL_", "CTRL_", "ADJ_", "CAM_", "LGT_")
 OWN_TRANSFORM = {"ADBE Position", "ADBE Position_0", "ADBE Position_1", "ADBE Position_2", "ADBE Scale",
-                 "ADBE Rotate Z", "ADBE Rotate X", "ADBE Rotate Y", "ADBE Orientation", "ADBE Anchor Point"}
+                 "ADBE Rotate Z", "ADBE Rotate X", "ADBE Rotate Y", "ADBE Orientation", "ADBE Anchor Point",
+                 "ADBE Opacity"}
 
 
 def run(args):
@@ -238,22 +243,60 @@ def cmd_postcheck(a):
                 and abs(float(v["frameRate"]) - float(opt["heavy_fps"])) > 0.01:
             warns.append(f"HVY_FPS {v.get('name')} runs at {v['frameRate']} fps, optimize.heavy_fps={opt['heavy_fps']}")
 
-    # 4. keys on an element's own transform
+    # 4. GOLDEN RULE 1: keys on an element's own transform (FAIL; rig = NULL_/CTRL_ null, ADJ_, Transform effect)
     if (prefs.get("motion") or {}).get("transform_rig", "parent_null") != "direct":
-        own = []
         for c in sorted(scope):
             for L in comps[c].get("layers") or []:
                 n = str(L.get("name", ""))
                 if n.startswith(RIG_PREFIX) or L.get("type") in ("CameraLayer", "LightLayer"):
                     continue
-                keyed = [p.get("name") for p in ((L.get("transformGroup") or {}).get("properties") or [])
+                keyed = [p.get("name") or p.get("matchName") for p in ((L.get("transformGroup") or {}).get("properties") or [])
                          if p.get("matchName") in OWN_TRANSFORM and p.get("keyframes")]
                 if keyed:
-                    own.append(f"{comps[c].get('name')} / {n}: {', '.join(keyed)}")
-        for s in own[:12]:
-            warns.append("OWN_TRANSFORM_KEYS " + s + " -> move to a NULL_/ADJ_/Transform effect")
-        if len(own) > 12:
-            warns.append(f"OWN_TRANSFORM_KEYS ... {len(own) - 12} more layers")
+                    fails.append(f"OWN_TRANSFORM_KEYS {comps[c].get('name')} / {n}: {', '.join(keyed)} "
+                                 "-> move the keys to a NULL_/CTRL_ parent, an ADJ_ layer or an extra Transform effect")
+
+    # 6. GOLDEN RULE 3: every layer has a colour label (FAIL on None, WARN on a label that differs from organize.labels)
+    labels = {str(k).upper(): v for k, v in ((prefs.get("organize") or {}).get("labels") or {}).items()}
+    for c in sorted(scope):
+        for L in comps[c].get("layers") or []:
+            n = str(L.get("name", ""))
+            lab_ = L.get("label")
+            if lab_ is None:
+                continue
+            if int(lab_) == 0:
+                fails.append(f"LABEL_NONE {comps[c].get('name')} / {n} -> label from organize.labels")
+                continue
+            pre = n.split("_", 1)[0].upper() if "_" in n else ""
+            if pre in labels and labels[pre] is not None and int(labels[pre]) != int(lab_):
+                warns.append(f"LABEL {comps[c].get('name')} / {n} is {lab_}, organize.labels[{pre}]={labels[pre]}")
+
+    # 7. GOLDEN RULE 2: no needless nesting (FAIL depth > max), parents only on rig nulls (WARN)
+    allow = tuple(p for p in (a.allow_nested or "").split(",") if p)
+    free = reach([c for c in comps if allow and str(comps[c].get("name", "")).startswith(allow)])
+    roots = [c for c in scope if not any(c in children(p) for p in scope)] if not a.comp else \
+        [c for c, v in comps.items() if v.get("name") == a.comp]
+    depth = {}
+    todo = [(r, 1, (r,)) for r in roots]
+    while todo:
+        cid, d, path = todo.pop()
+        if depth.get(cid, 0) >= d:
+            continue
+        depth[cid] = d
+        for ch in children(cid):
+            if ch not in path:
+                todo.append((ch, d + 1, path + (ch,)))
+    for cid, d in sorted(depth.items(), key=lambda x: -x[1]):
+        if d > a.max_depth and cid not in free:
+            fails.append(f"NESTED_DEPTH {comps[cid].get('name')} is {d} levels deep (max {a.max_depth}: main -> one precomp) "
+                         "-> put its layers in the parent comp")
+    for c in sorted(scope):
+        lays = comps[c].get("layers") or []
+        by_idx = {L.get("index"): L for L in lays}
+        for L in lays:
+            p = by_idx.get(L.get("parentIndex")) if L.get("parentIndex") else None
+            if p is not None and not str(p.get("name", "")).startswith(("NULL_", "CTRL_")):
+                warns.append(f"PARENT {comps[c].get('name')} / {L.get('name')} -> parent '{p.get('name')}' is not a NULL_/CTRL_ rig")
 
     # 3. sampled colours vs palette
     if a.samples:
@@ -285,6 +328,16 @@ def cmd_postcheck(a):
                     gap = max(-ox, -oy)
                     if 0 <= gap < a.min_gap:
                         warns.append(f"GAP {n1} - {n2} {gap:.0f} px (< {a.min_gap:g})")
+        if a.subject:
+            for s in rjson(a.subject, []) or []:
+                sb = box_of(s)
+                for n, p in bx:
+                    ox, oy = min(p[2], sb[2]) - max(p[0], sb[0]), min(p[3], sb[3]) - max(p[1], sb[1])
+                    area = max((p[2] - p[0]) * (p[3] - p[1]), 1.0)
+                    if ox > 0 and oy > 0 and ox * oy / area > a.subject_max:
+                        at = f" at {s['t']}s" if s.get("t") is not None else ""
+                        warns.append(f"SUBJECT {n} covers the subject{at} ({ox * oy / area:.0%} of the element) "
+                                     "-> move it to a free zone or note 'covers subject on purpose'")
         if a.edge and a.size:
             w, h = [float(x) for x in a.size.lower().split("x")]
             for n, p in bx:
@@ -293,6 +346,11 @@ def cmd_postcheck(a):
                     warns.append(f"EDGE {n} {m:.0f} px from the frame edge (< {a.edge:g})")
 
     for tag, lst in (("FAIL", fails), ("WARN", warns)):
+        if len(lst) > a.max_lines:
+            cnt = {}
+            for x in lst:
+                cnt[x.split(" ", 1)[0]] = cnt.get(x.split(" ", 1)[0], 0) + 1
+            print(f"{tag}S by check: " + ", ".join(f"{k}={v}" for k, v in sorted(cnt.items(), key=lambda kv: -kv[1])))
         for x in lst[:a.max_lines]:
             print(f"{tag} {x}")
         if len(lst) > a.max_lines:
@@ -332,6 +390,10 @@ def main():
     pc.add_argument("--edge", type=float, default=0.0)
     pc.add_argument("--size", help="comp size WxH for --edge")
     pc.add_argument("--max-lines", type=int, default=15, help="lines printed per FAIL/WARN list")
+    pc.add_argument("--max-depth", type=int, default=2, help="comp nesting levels allowed (main=1)")
+    pc.add_argument("--allow-nested", default="LIB_", help="comma list of comp name prefixes whose insides may nest")
+    pc.add_argument("--subject", help="subject boxes JSON [{t?, box:[l,t,r,b]}] - WARN when --bounds overlap it")
+    pc.add_argument("--subject-max", type=float, default=0.25, help="share of an element box that may cover the subject")
     pc.add_argument("--home")
     a = ap.parse_args()
     {"check": cmd_check, "thumbs": cmd_thumbs, "ae-postcheck": cmd_postcheck}[a.cmd](a)

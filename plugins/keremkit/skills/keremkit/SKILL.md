@@ -19,19 +19,11 @@ Makes Claude edit in After Effects and Premiere Pro like a disciplined editor wh
 
 ## The KeremKit home folder
 
-```
-KeremKit/
-  settings/       preferences.json (null = never asked), categories.json, keys.json (API keys, local only)
-  library/        CATALOG.tsv (search it, never read it whole), items/<category>/<ID>_<slug>/, mogrt/
-  styles/<slug>/  style.json (+ template project); styles/_archive/<slug>/v###/
-  assets/         downloaded free elements: <type>/<source>/ + SOURCES.md; INDEX.tsv (check before downloading)
-  learning/       house-style.md, known-issues.md, token-notes.md, sessions/, skill-change-requests.md
-  tools/          the kit's scripts (+ tools/bin/ yt-dlp);  extensions/  user tools;  models/  local models;  cache/
-```
+Folders: settings/ (preferences.json, null = never asked), library/ (CATALOG.tsv - search it, never read it whole), styles/, assets/, learning/, tools/, extensions/, models/ (`references/setup.md` §1).
 
 - Find it with `python <this skill's folder>/scripts/keremkit.py where`; then use `<home>/tools/` ("tools/x.py" below). `NOT_SET_UP` or first request: `references/setup.md`.
 - **Remember the locations:** with persistent memory, save the output of `keremkit.py where --all` once as ONE memory "KeremKit locations"; update that memory when a location changes, never add a second. Later sessions confirm it with a plain `where`.
-- **Tools version:** once per session run `keremkit.py version` (this skill is `KeremKit 2.3.0`). If it differs, say so in one line; update the tools only when the user asks.
+- **Tools version:** once per session run `keremkit.py version` (this skill is `KeremKit 2.4.0`). If it differs, say so in one line; update the tools only when the user asks.
 - **Tools:** keremkit.py, transcript.py, cutlist.py, subtitles.py, editplan.py, audio.py, sfx.py, qc.py, techniques.py, tokens.py, presets.py, videoref.py, previews.py, assets.py, digest.py, prproj.py, download.py, prbatch.py. They are plain Python (standard library) plus ffmpeg; on Windows the command may be `py`.
 
 ## No edit templates - the user's styles decide
@@ -44,9 +36,11 @@ Never edit, repackage or re-version this skill or `KeremKit/tools/`. Techniques 
 
 ## Gates: preflight first, postcheck last
 
-- **Preflight:** the first tool call of every build, edit or SFX job is `keremkit.py preflight <task> [--style SLUG]` (tasks: ae-design, ae-build, sfx, edit, cut, subtitles, premiere, download, library). Its output - banned files, the custom_rules for this task, prefs, style tokens, what to read, the gate - is the checklist; it beats memory.
+- **Preflight:** the first tool call of every build, edit or SFX job is `keremkit.py preflight <task> [--style SLUG] --request "<the user's words>"` (tasks: ae-design, ae-build, sfx, edit, cut, subtitles, premiere, download, library). Its output - golden rules, the request as numbered items, named functions resolved to ids, banned files, custom_rules, prefs, style tokens, the gate - is the checklist; it beats memory.
+- **Request first:** no edit before the request is split into items. A named function / technique / library item = exactly that one, its steps verbatim; nothing outside the request; an unclear word -> that function's own definition, else ask. The final reply lists each item done / not done.
 - **Order when instructions meet:** explicit instruction in this request > the user's hand fixes > the named style > library defaults > Claude's choice. A real conflict with no instruction is asked, never resolved silently.
-- **Postcheck:** an AE build is done only when `qc.py ae-postcheck` shows no FAIL (`references/qc.md`). SFX files are chosen only from `sfx.py filter` output.
+- **Postcheck:** an AE build is done only when `qc.py ae-postcheck` shows no FAIL: keys on an element's own transform, a layer without a colour label, precomp-in-precomp, heavy effects outside `HVY_`, banned SFX (`references/qc.md`). SFX files are chosen only from `sfx.py filter` output.
+- **Cloning a reference** = from scratch, measured frame to frame, exact font (`references/video-reference.md` §5).
 
 ## Preferences - remember everything, ask once
 
@@ -91,36 +85,26 @@ ASCII `PREFIX_PascalName[_01]` inside AE (comps `SCN_ PRE_ LIB_`, layers `TXT_ U
 
 | Situation | Read |
 |---|---|
-| First use, `NOT_SET_UP`, (re)configure | `references/setup.md` |
-| A preference is null or the user states one | `references/preferences.md` |
-| Cost estimates, saving tokens, token notes, session reports | `references/token-budget.md` |
-| A named edit style, a new style, learning a style from a project | `references/edit-styles.md` |
-| Spoken recording: transcribe, fix words, retakes, wordless speech | `references/transcript.md`, then `references/cutting.md` |
-| Cutting silences, "add/remove time at X s" | `references/cutting.md` |
+| First use, `NOT_SET_UP`; a preference is null or stated | `references/setup.md`; `references/preferences.md` |
+| Cost estimates, token notes, session reports | `references/token-budget.md` |
+| A named edit style, new style, learning one | `references/edit-styles.md` |
+| Speech: transcribe, fix words, retakes, wordless speech; cut silences | `references/transcript.md`, then `references/cutting.md` |
 | Voice-led edit with many shots | `references/edit-plan.md` |
-| A reference video to learn from | `references/video-reference.md` |
-| Subtitles | `references/subtitles.md` |
-| Sound effects | `references/sound-effects.md` |
-| Free elements (photo, video, texture, vector/.ai, icon, logo, 3D, Lottie, font, sound); "which sites?" | `references/assets.md` |
-| A design with several parts | `references/design-plan.md` |
-| Copying a look from a reference | `references/design-import.md` |
-| Effect presets (.ffx) | `references/presets.md` |
-| "What can you do with ...?", techniques | `references/techniques.md` |
-| Audio clean-up, loudness, music, ducking | `references/audio.md` |
-| More formats (9:16, 1:1...) | `references/formats.md` |
+| A reference video to learn from or clone | `references/video-reference.md` |
+| Subtitles; sound effects; audio clean-up, music | `references/subtitles.md`; `references/sound-effects.md`; `references/audio.md` |
+| Free elements (photo, video, vector/.ai, icon, logo, 3D, Lottie, font, sound) | `references/assets.md` |
+| A design with several parts; copying a look | `references/design-plan.md`; `references/design-import.md` |
+| Effect presets (.ffx); techniques, "what can you do with ...?" | `references/presets.md`; `references/techniques.md` |
+| More formats (9:16, 1:1...); chapters, titles, export | `references/formats.md`; `references/publish.md` |
 | AE postcheck, before the final render | `references/qc.md` |
 | Layer order, names, colour labels, precomping | `references/organize.md` |
-| Resuming or continuing a project, brand kit, canonical names | `references/project-map.md` |
-| AE op parameters, AE 2026 / Advanced 3D pitfalls | `references/ae-ops.md` |
-| Motion blur | `references/motion-blur.md` |
-| AE speed: heavy parts (3D, glows, mockups), pre-render plates, slow previews/renders | `references/optimization.md` |
-| Chapters, titles, thumbnails, export to other editors | `references/publish.md` |
-| Anything in Premiere Pro (XML, MCP, MOGRT, names, styles from .prproj) | `references/premiere.md` |
+| Resuming a project, brand kit, canonical names | `references/project-map.md` |
+| AE op parameters, Advanced 3D pitfalls; motion blur | `references/ae-ops.md`; `references/motion-blur.md` |
+| AE speed: heavy parts, plates, slow renders | `references/optimization.md` |
+| Premiere Pro (XML, MCP, MOGRT, .prproj) | `references/premiere.md` |
 | Downloading a video, Premiere fix, 4K + repair | `references/downloads.md` |
-| Saving to the library / a pack / a whole project | `references/library-save.md`, `references/library-pack.md` |
-| Previews | `references/previews.md` |
-| Placing a saved item | `references/library-use.md` |
-| The user asks to look / take a screenshot | `references/verification.md` |
+| Saving to the library / a pack; placing a saved item | `references/library-save.md`, `references/library-pack.md`; `references/library-use.md` |
+| Previews; the user asks to look / screenshot | `references/previews.md`; `references/verification.md` |
 | Project structure, safe areas, motion, render | `references/standards.md` |
 | Something failed | `references/troubleshooting.md` |
 

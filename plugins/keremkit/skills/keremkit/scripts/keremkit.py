@@ -36,8 +36,10 @@ bookkeeping on the user's computer and prints only short results.
   style-get SLUG KEY [KEY ...]            print only these dotted keys of styles/SLUG/style.json
   map      init|add|find|name|show PROJECT_DIR ...   the project map in <project>/_keremkit/ (references/project-map.md)
   learning-archive [--file F] [--dry-run] move sections marked "Status: done ..." to <file>.archive.md
-  preflight TASK [--style SLUG]          the binding rules for one task in <= 45 lines (banned files, matching
-                                          custom_rules, prefs, style tokens, what to read, the gate): run it first
+  preflight TASK [--style SLUG] [--request TEXT|@file]
+                                          the binding rules for one task in <= 60 lines (golden rules, the request
+                                          split into items + named functions, banned files, matching custom_rules,
+                                          prefs, style tokens, what to read, the gate): run it first
 
 All commands except `where`/`init` use the home from the pointer file; pass --home to override.
 """
@@ -51,7 +53,7 @@ import sys
 import unicodedata
 from datetime import date
 
-KIT_VERSION = "2.3.0"
+KIT_VERSION = "2.4.0"
 POINTER = os.path.join(os.path.expanduser("~"), ".keremkit.json")
 DEFAULT_HOME = os.path.join(os.path.expanduser("~"), "Documents", "KeremKit")
 CATALOG_COLS = ["id", "type", "category", "name", "local_name", "summary", "folder", "search"]
@@ -1287,14 +1289,83 @@ def rule_tags(rule):
     return {t for t, words in TAG_WORDS.items() if any(hit(w) for w in words)}
 
 
+GOLDEN_AE = (
+    "GOLDEN 1 motion: never key an element's own Position/Scale/Rotation/Opacity/Anchor -> NULL_/CTRL_ parent, "
+    "ADJ_ layer, last resort an extra Transform effect (postcheck FAIL OWN_TRANSFORM_KEYS)",
+    "GOLDEN 2 nesting: no precomp in precomp; main -> one precomp at most, only for HVY_/LIB_; parents only on "
+    "NULL_/CTRL_ rigs (postcheck FAIL NESTED_DEPTH, WARN PARENT)",
+    "GOLDEN 3 labels: every layer gets its organize.labels colour, none stays None (postcheck FAIL LABEL_NONE)",
+)
+GOLDEN_ALL = (
+    "GOLDEN 4 request: no edit before the request is split into the items below; a named function/technique/"
+    "library item = exactly that one, its steps verbatim; nothing outside the request; unclear word -> the named "
+    "function's own definition, else ask. Report every item done / not done at the end.",
+)
+GOLDEN_SUGGEST = ("GOLDEN 5 suggestions: pick library items by name/summary meaning only (`find`), list only direct "
+                  "matches, never pad the list, previews are for showing the user, not for choosing",)
+
+
+def split_request(text):
+    """User request -> numbered items (lines, sentences, ';', ' ve ' / ' and ' between clauses)."""
+    parts = re.split(r"\n+|;|(?<=[.!?])\s+|\s+(?:ve|and|sonra|then|ayrica|ayrıca)\s+(?=\S+\s+\S+)", text or "")
+    return [" ".join(p.split()).strip(" .,-") for p in parts if p and len(p.strip(" .,-")) > 2]
+
+
+def request_names(h, text):
+    """Library ids / technique ids / names that appear in the request text -> [(kind, id, name)]."""
+    low, out = norm(text), []
+    for m in re.findall(r"\b[A-Z]{2,4}-\d{3}\b", text or ""):
+        out.append(("library", m, ""))
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import techniques as _t  # noqa: E402
+        for t in _t.load_all(h)[1]:
+            nm = norm(t.get("name", ""))
+            if t["id"].lower() in (text or "").lower() or norm(t["id"]) in low or (len(nm) >= 8 and nm in low):
+                out.append(("technique", t["id"], t.get("name", "")))
+    except Exception:
+        pass
+    try:
+        for r in read_catalog(h):
+            nm = norm(r.get("name", ""))
+            if len(nm) >= 8 and nm in low and r["id"] not in [x[1] for x in out]:
+                out.append(("library", r["id"], r.get("name", "")))
+    except OSError:
+        pass
+    seen, uniq = set(), []
+    for x in out:
+        if x[1] not in seen:
+            seen.add(x[1])
+            uniq.append(x)
+    return uniq
+
+
 def cmd_preflight(a):
     h = need_home(home_dir(a.home))
     if a.task not in TASKS:
         sys.exit(f"ERROR: unknown task '{a.task}'; use: {', '.join(TASKS)}")
     prefs = rjson(prefs_path(h), {}) or {}
     want = set(TASKS[a.task])
-    out = [f"PREFLIGHT {a.task} (KeremKit {KIT_VERSION}) - this is the checklist for the task; it beats memory",
-           f"ORDER {RULE_ORDER}"]
+    out = [f"PREFLIGHT {a.task} (KeremKit {KIT_VERSION}) - this is the checklist for the task; it beats memory"]
+    if a.task in ("ae-design", "ae-build", "library"):
+        out += list(GOLDEN_AE)
+    out += list(GOLDEN_ALL)
+    if a.task in ("ae-design", "library"):
+        out += list(GOLDEN_SUGGEST)
+    req = a.request
+    if req and req.startswith("@") and os.path.isfile(req[1:]):
+        with open(req[1:], encoding="utf-8") as f:
+            req = f.read()
+    if req:
+        items = split_request(req)
+        out.append(f"REQUEST {len(items)} items - do these, only these:")
+        out += [f"  R{i}. {x[:a.width]}" for i, x in enumerate(items, 1)]
+        for kind, iid, nm in request_names(h, req):
+            out.append(f"  NAMED {kind} {iid}{(' (' + nm + ')') if nm else ''} -> use exactly this; read its steps "
+                       f"({'techniques.py show ' + iid if kind == 'technique' else 'keremkit.py find ' + iid}) before any op")
+    else:
+        out.append("REQUEST not given -> rerun with --request \"<the user's words>\" (or @file) to get the item list")
+    out.append(f"ORDER {RULE_ORDER}")
     if "sfx" in want or a.task.startswith("ae-"):
         bl = (prefs.get("sfx") or {}).get("banned_files") or []
         names = [(b.get("file") or b.get("path")) if isinstance(b, dict) else str(b) for b in bl]
@@ -1439,8 +1510,9 @@ def main():
     pf = sp.add_parser("preflight")
     pf.add_argument("task", help=" | ".join(TASKS))
     pf.add_argument("--style", help="the named style's slug")
+    pf.add_argument("--request", help="the user's request text (or @file) -> numbered items + named functions")
     pf.add_argument("--width", type=int, default=200, help="characters per rule line")
-    pf.add_argument("--max", type=int, default=45, help="max lines")
+    pf.add_argument("--max", type=int, default=60, help="max lines")
     a = ap.parse_args()
     if a.cmd == "cat" and a.action == "add" and not all([a.key, a.prefix, a.name]):
         ap.error("cat add needs --key --prefix --name")

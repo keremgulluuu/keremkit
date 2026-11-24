@@ -127,9 +127,9 @@ def test_postcheck_ok_warns_rig_colour_spacing(kk, tmp_path):
                                   {"layer": "C", "left": 230, "top": 100, "width": 100, "height": 100},
                                   {"layer": "Plate", "box": [0, 0, 1920, 1080]}]), encoding="utf-8")
     out = run("qc.py", "ae-postcheck", p, "--home", kk, "--style", "lime", "--samples", samples,
-              "--bounds", bounds, "--min-gap", 40, "--edge", 20, "--size", "1920x1080").stdout
-    assert "POSTCHECK OK fail=0" in out
-    assert "OWN_TRANSFORM_KEYS MAIN / TXT_Title: ADBE Position" in out and "NULL_Rig" not in out
+              "--bounds", bounds, "--min-gap", 40, "--edge", 20, "--size", "1920x1080", check=False).stdout
+    assert "POSTCHECK FAIL fail=1" in out   # 2.4.0: own-transform keys are a FAIL (golden rule 1)
+    assert "FAIL OWN_TRANSFORM_KEYS MAIN / TXT_Title: ADBE Position" in out and "NULL_Rig" not in out
     assert "COLOUR TXT_Title measured #F7FFDB" in out and "TXT_Ok" not in out
     assert "OVERLAP A x B" in out and "GAP B - C 25 px" in out
     assert "EDGE A 10 px" in out and "Plate" not in out.split("EDGE A")[0].split("OVERLAP")[-1]

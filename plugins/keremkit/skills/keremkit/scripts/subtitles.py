@@ -550,6 +550,8 @@ def cmd_build(a):
     print(f"OK cues={len(cues)} words={sum(counts)} avg_words={sum(counts) / len(cues):.1f} "
           f"max_words={max(counts)} below_min={short} highlighted_cues={hl} zones={len(zones)} "
           f"-> {a.output}.json, {a.output}.srt")
+    print("RULES " + " ".join(f"{k}={rules[k]}" for k in ("max_words", "min_words", "max_lines", "max_chars")
+                              if k in rules) + (f" (--set {' '.join(a.set)})" if a.set else ""))
 
 
 def cmd_preview(a):
@@ -604,7 +606,7 @@ def main():
     b.add_argument("--zone", default="main")
     b.add_argument("--plan")
     b.add_argument("--rules")
-    b.add_argument("--set", nargs="*", help="override a rule: key=value (JSON values), e.g. max_lines=1 highlight.max_per_cue=2")
+    b.add_argument("--set", nargs="*", action="extend", help="override a rule: key=value (JSON values), e.g. max_lines=1 highlight.max_per_cue=2")
     b.add_argument("-o", "--output", required=True)
     p = sp.add_parser("preview")
     p.add_argument("file")

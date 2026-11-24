@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] - 2026-11-24
+
+The owner's golden rules become checks: rules repeated many times in prose (motion rig, no needless nesting, colour labels, the request read first) were still broken in real builds.
+
+### Added
+- `keremkit.py preflight --request "<text>" | @file`: the request split into numbered items (lines, sentences, `;`, "ve/and/sonra/then" between clauses) plus every named technique id/name and library id/name found in it, resolved to its id with the command that shows its steps. Golden-rule lines head every `ae-build` / `ae-design` / `library` checklist (and the request rule every task); `ae-design` / `library` also get the suggestion rule. Default `--max` 60 lines.
+- `qc.py ae-postcheck`: FAIL `OWN_TRANSFORM_KEYS` (was WARN; now includes Opacity, and `HVY_` / `PLT_` layers are no longer exempt), FAIL `LABEL_NONE`, WARN `LABEL` (differs from `organize.labels`), FAIL `NESTED_DEPTH` (`--max-depth 2`, `--allow-nested LIB_`), WARN `PARENT` (parent not a `NULL_`/`CTRL_` rig), WARN `SUBJECT` (`--subject subject.json`, `--subject-max 0.25`), and a per-check count line when a list is longer than `--max-lines`.
+- `video-reference.md` §5 clone mode: from scratch, measured frame to frame, exact font by glyph comparison, side-by-side + difference check after every step.
+- `design-plan.md` 0c (subject boxes per beat) and the request-first step; `library-use.md`: suggestions by name/meaning only, no padding.
+
+### Fixed
+- `cutlist.py`: phone videos with a ±90° display matrix / rotate tag were exported as a landscape sequence - width and height are now swapped; VFR files use the nominal `r_frame_rate` instead of `avg_frame_rate` (32.268 for a 60 fps iPhone file) when they differ by more than 1 %.
+- `subtitles.py build`: repeated `--set` flags kept only the last one; they now accumulate, and the result prints the effective `RULES` line.
+
+### Changed
+- SKILL.md: gates section names the golden checks and clone mode; the home-folder tree moved to `setup.md` §1; the "What to read when" table merged into fewer rows (12 008 bytes).
+
 ## [2.3.0] - 2026-11-19
 
 Rules as checks instead of text: a postmortem of a real build showed that rules written only as prose were skipped (banned sound used, heavy effects at 60 fps, a colour request overlaid instead of applied, spacing never measured, ~131 M cache-read tokens for a 17 s comp).

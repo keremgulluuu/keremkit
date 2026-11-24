@@ -90,6 +90,23 @@ def load_words(path):
     return words
 
 
+def ratio(s):
+    num, _, den = (s or "0/1").partition("/")
+    try:
+        return float(num) / float(den or 1) if float(den or 1) and float(num) else None
+    except ValueError:
+        return None
+
+
+def nominal_fps(avg, r):
+    """Phones record VFR: avg_frame_rate gives 32.268 for a 60 fps iPhone file. Use r_frame_rate (the
+    nominal rate) when it is a sane rate and avg differs from it by more than 1 %."""
+    a, n = ratio(avg), ratio(r)
+    if n and n <= 120 and (not a or abs(a - n) / n > 0.01):
+        return round(n, 3)
+    return round(a, 3) if a else None
+
+
 def probe(media):
     """Return (duration, fps, has_video, has_audio) via ffprobe; None values if unavailable."""
     if not shutil.which("ffprobe"):
@@ -97,7 +114,7 @@ def probe(media):
     try:
         out = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries",
-             "format=duration:stream=codec_type,avg_frame_rate", "-of", "json", media],
+             "format=duration:stream=codec_type,avg_frame_rate,r_frame_rate", "-of", "json", media],
             capture_output=True, text=True, check=True).stdout
         info = json.loads(out)
     except Exception:
@@ -107,12 +124,7 @@ def probe(media):
     for st in info.get("streams", []):
         if st.get("codec_type") == "video":
             has_v = True
-            num, _, den = (st.get("avg_frame_rate") or "0/1").partition("/")
-            try:
-                if float(den or 1) and float(num):
-                    fps = round(float(num) / float(den or 1), 3)
-            except ValueError:
-                pass
+            fps = nominal_fps(st.get("avg_frame_rate"), st.get("r_frame_rate"))
         elif st.get("codec_type") == "audio":
             has_a = True
     return dur, fps, has_v, has_a
@@ -637,17 +649,34 @@ def tcf(f, fps):
     return f"{f // (3600 * r):02d}:{f // (60 * r) % 60:02d}:{f // r % 60:02d}:{f % r:02d}"
 
 
+def rotation_of(st):
+    """Display rotation in degrees from a ffprobe video stream (side data display matrix or rotate tag)."""
+    for sd in st.get("side_data_list") or []:
+        if sd.get("rotation") is not None:
+            try:
+                return int(round(float(sd["rotation"])))
+            except (TypeError, ValueError):
+                pass
+    try:
+        return int((st.get("tags") or {}).get("rotate") or 0)
+    except ValueError:
+        return 0
+
+
 def probe_av(media):
     """(width, height, sample_rate, channels) via ffprobe; defaults when unavailable."""
     w, h, sr, ch = 1920, 1080, 48000, 2
     if shutil.which("ffprobe") and os.path.exists(media):
         try:
             info = json.loads(subprocess.run(
-                ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height,sample_rate,channels",
+                ["ffprobe", "-v", "error", "-show_entries",
+                 "stream=codec_type,width,height,sample_rate,channels:stream_tags=rotate:stream_side_data=rotation",
                  "-of", "json", media], capture_output=True, text=True, check=True).stdout)
             for st in info.get("streams", []):
                 if st.get("codec_type") == "video" and st.get("width"):
                     w, h = int(st["width"]), int(st["height"])
+                    if abs(rotation_of(st)) % 180 == 90:    # phone video stored landscape, shown portrait
+                        w, h = h, w
                 elif st.get("codec_type") == "audio" and st.get("sample_rate"):
                     sr, ch = int(st["sample_rate"]), int(st.get("channels") or 2)
         except Exception:

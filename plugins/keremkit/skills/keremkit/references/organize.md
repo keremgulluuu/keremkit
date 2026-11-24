@@ -11,7 +11,7 @@ After every edit (and on "tidy the project"), KeremKit orders, names and colour-
 4. **Project panel** - when `organize.folders` is true, items go into `01_SCENES`, `02_PRECOMPS`, `03_FOOTAGE`, `04_AUDIO`, `05_LIBRARY`, `99_ARCHIVE`.
 
 5. **Names** - the same thing keeps the same name in every chat: check `keremkit.py map name <project> <thing>` before naming, register new ones (`project-map.md`).
-6. **Precomping elements** - preference `organize.precomp_elements` (`on` | `off` | `ask`; null = ask once). When on: a multi-layer element in the main comp becomes one precomp layer (+ its control null), unless precomping would change it. Check before: 3D layers sharing the main comp's camera/lights, Collapse Transformations, parents or expressions pointing in or out (`thisComp.layer(...)`), track mattes across the boundary, adjustment layers that must affect what is below. If any applies, leave it and say why in one line.
+6. **Precomping elements** - preference `organize.precomp_elements` (`on` | `off` | `ask`; null = ask once). When on: a multi-layer element in the main comp becomes one precomp layer (+ its control null), unless precomping would change it. Check before: 3D layers sharing the main comp's camera/lights, Collapse Transformations, parents or expressions pointing in or out (`thisComp.layer(...)`), track mattes across the boundary, adjustment layers that must affect what is below. If any applies, leave it and say why in one line. Never precomp inside a precomp: main -> one precomp is the limit (`HVY_` / `LIB_` / `PRE_`), every layer keeps a colour label - `qc.py ae-postcheck` fails on depth > 2 and on label None.
 
 ## Doing it cheaply
 

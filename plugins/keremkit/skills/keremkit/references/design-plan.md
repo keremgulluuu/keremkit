@@ -16,9 +16,13 @@ A design with several parts needs one spacing system, not values picked per elem
 - Every size and gap is a multiple of the base unit.
 - After the build, `qc.py ae-postcheck --bounds ... --min-gap <gap> --edge <margin>` measures it.
 
+## 0c. Where the subject is (video under the design)
+
+Elements must not sit on the person or product in the footage unless the plan says so. For each beat, measure the subject box from one or two frames of the footage (`ffmpeg -ss T -frames:v 1` at thumb size; face/body bounds in comp pixels) and keep them in the plan as `subject.json` = `[{"t": seconds, "box": [left, top, right, bottom]}]`. Place elements in the free zones; when an element covers the subject on purpose, write "covers subject on purpose" next to it. After the build, `qc.py ae-postcheck --bounds b.json --subject subject.json` WARNs on every element that covers more than 25 % of its box with the subject.
+
 ## 1. Split the request into parts
 
-From the request, the active style and `learning/house-style.md`: 2-8 parts, each a few words ("intro: animated title", "counter: gold subscriber count", "background: purple moving gradient", "transition: whoosh slide"). Parts follow the order they appear in the video.
+First `keremkit.py preflight ae-design --request "<the user's words>"`: the numbered items are the scope. A named function, technique or library item in the request is used as named (its own steps); parts are not added beyond the request. From the request, the active style and `learning/house-style.md`: 2-8 parts, each a few words ("intro: animated title", "counter: gold subscriber count", "background: purple moving gradient", "transition: whoosh slide"). Parts follow the order they appear in the video.
 
 ## 2. Search them all at once
 

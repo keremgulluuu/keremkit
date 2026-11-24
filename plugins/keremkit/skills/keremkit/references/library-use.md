@@ -10,6 +10,8 @@ Goal: "add the gold counter, 0 to 25,000, at 2 seconds" in ~4 tool calls - no de
 - Several close hits -> offer up to 3 in one line each (number, ID, name, summary) **and show them** (below); let the user pick by number.
 - No hit -> say it is not in the library and offer to design it (do not start designing unasked).
 
+**Suggesting items for a beat** ("which elements fit next to '3 Aralık Son'?"): turn the beat's meaning into search words (date, deadline, last day -> clock, countdown, calendar) and `find` / `search` them. List only items whose name or summary has a direct meaning link to the beat; no padding with loosely related items (notes, pins, badges, locks), no "might also work" tail. Fewer good items beat a long list. Previews are shown to the user; they are not how Claude chooses.
+
 ## Showing options
 
 Whenever library items are offered - search results, "which animated titles do I have?", "show me UI-008" - the user sees their previews in the chat, in **one** image:

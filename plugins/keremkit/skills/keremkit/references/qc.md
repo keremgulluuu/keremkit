@@ -24,7 +24,14 @@ Before a final render (and on "check everything"): `qc.mode` decides - `auto` (a
 
 1. `ae_project_export_json(outPath=<project>/_keremkit/export.json)`, then
    `qc.py ae-postcheck <export.json> --comp <main comp> [--style SLUG] [--samples s.json] [--bounds b.json --min-gap PX --edge PX --size WxH]`.
-2. Checks: **FAIL** a banned SFX file in the project; **FAIL** a heavy effect (glows, CC Force Motion Blur, RSMB, CC Glass, Displacement, Fractal Noise, Particular, Element...) in a comp that is not inside an `HVY_` comp while `optimize.mode` is on; WARN an `HVY_` comp not at `optimize.heavy_fps`; WARN keys on an element's own transform while `motion.transform_rig` is `parent_null`; WARN a sampled colour far from the style palette (CIE dE > 12); WARN overlaps, gaps below the minimum, elements too close to the frame edge.
+2. Checks:
+   - **FAIL** a banned SFX file in the project.
+   - **FAIL** a heavy effect (glows, CC Force Motion Blur, RSMB, CC Glass, Displacement, Fractal Noise, Particular, Element...) in a comp that is not inside an `HVY_` comp while `optimize.mode` is on.
+   - **FAIL `OWN_TRANSFORM_KEYS`** keys on an element's own Position / Scale / Rotation / Opacity / Anchor while `motion.transform_rig` is not `direct`. Only `NULL_` / `CTRL_` nulls, `ADJ_`, `CAM_`, `LGT_` layers may be keyed; elements move through a parent null, an ADJ_ layer or an extra Transform effect (`standards.md`).
+   - **FAIL `LABEL_NONE`** a layer with colour label None; WARN `LABEL` a label that differs from `organize.labels` for the layer's prefix.
+   - **FAIL `NESTED_DEPTH`** a comp nested deeper than `--max-depth` (default 2: main -> one precomp). The insides of comps starting with `--allow-nested` (default `LIB_`) are free. WARN `PARENT` a parent that is not a `NULL_` / `CTRL_` rig.
+   - WARN an `HVY_` comp not at `optimize.heavy_fps`; a sampled colour far from the style palette (CIE dE > 12); overlaps, gaps below the minimum, elements too close to the frame edge; with `--subject subject.json` an element covering the subject (`design-plan.md` 0c).
+   - Many lines: the first line per list counts them by check (`FAILS by check: ...`); `--max-lines` prints more.
 3. Colour and spacing need two small files from ONE batch: `comp.sample` at the rest frame of each `TXT_`/`UI_` layer -> `[{"layer","rgb"}]`; `layer.bounds` -> `[{"layer","left","top","width","height"}]`. Sample after the whole effect chain (fill -> toner -> contrast -> glow): the measured colour is what the viewer sees.
 4. Any FAIL: fix it (or ask, when the fix changes the look) and run it again. "Done" only with no FAIL; WARN lines go to the user in the review checklist below.
 

@@ -10,6 +10,16 @@ Use the session's multiple-choice question tool when there is one; otherwise ask
 
 Then run `keremkit.py init [PATH]`. It creates the folders (settings, library incl. `library/mogrt/`, styles, `assets/` for downloaded elements, learning incl. `token-notes.md` and `sessions/`, tools, extensions), default `preferences.json` and `categories.json`, the learning files, copies the tools into `KeremKit/tools/`, and writes the pointer file `~/.keremkit.json` so later sessions find the folder. Re-running `init` only adds what is missing; it never overwrites user data.
 
+```
+KeremKit/
+  settings/       preferences.json (null = never asked), categories.json, keys.json (API keys, local only)
+  library/        CATALOG.tsv (search it, never read it whole), items/<category>/<ID>_<slug>/, mogrt/
+  styles/<slug>/  style.json (+ template project); styles/_archive/<slug>/v###/
+  assets/         downloaded free elements: <type>/<source>/ + SOURCES.md; INDEX.tsv (check before downloading)
+  learning/       house-style.md, known-issues.md, token-notes.md, sessions/, skill-change-requests.md
+  tools/          the kit's scripts (+ tools/bin/ yt-dlp);  extensions/  user tools;  models/  local models;  cache/
+```
+
 Set `language.library` now if the user writes in a language other than English (see SKILL.md -> Language).
 
 ## 2. Detect tools (silently)
